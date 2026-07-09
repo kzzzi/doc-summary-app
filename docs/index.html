@@ -1,0 +1,1158 @@
+<title>AI 문서 분석 데모</title>
+<div class="app">
+  <header class="app-header">
+    <h1>AI 문서 분석</h1>
+    <p class="subtitle">문서 유형을 자동으로 판단하고, 유형에 맞는 항목으로 분석 결과를 정리합니다.</p>
+  </header>
+
+  <ol class="steps">
+    <li data-step="1" class="step active"><span>1</span>문서 업로드</li>
+    <li data-step="2" class="step"><span>2</span>분석 시작</li>
+    <li data-step="3" class="step"><span>3</span>결과 확인 / 다운로드</li>
+  </ol>
+
+  <main>
+    <section id="panel-1" class="panel active">
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="파일 선택">
+        <p>PDF, DOCX, HWP, HWPX, TXT 파일을 끌어다 놓거나 클릭하여 선택하세요. (여러 개 선택 가능)</p>
+        <input type="file" id="fileInput" accept=".pdf,.docx,.hwp,.hwpx,.txt" multiple hidden />
+      </div>
+      <p class="hint">파일당 최대 40MB · 최대 10개 · PDF / DOCX / HWP / HWPX / TXT 지원</p>
+      <ul class="sample-list" id="sampleList"></ul>
+      <p class="error" id="uploadError"></p>
+      <ul class="file-chip-list" id="fileChipList"></ul>
+      <div class="actions actions-right">
+        <button id="toStep2" class="btn primary" disabled>다음</button>
+      </div>
+    </section>
+
+    <section id="panel-2" class="panel">
+      <div class="option-group" id="modeGroup" hidden>
+        <h3>분석 방식 <span class="hint-inline">업로드한 문서가 여러 건일 때</span></h3>
+        <div class="radio-row" data-name="mode">
+          <label><input type="radio" name="mode" value="combined" checked />통합 분석<small>모든 문서를 하나로 합쳐 분석</small></label>
+          <label><input type="radio" name="mode" value="individual" />개별 분석<small>문서별로 각각 분석</small></label>
+        </div>
+      </div>
+
+      <p class="option-desc">문서 유형(조사/통계, 업무 가이드, 기술/전략, 사고사례, 산업동향 등)을 자동으로 판단하고, 유형에 맞는 항목으로 분석합니다.</p>
+
+      <div class="option-group">
+        <h3>요약 목적 <button type="button" class="help-icon" data-help="purpose" aria-label="요약 목적 도움말">?</button></h3>
+        <div class="radio-row" data-name="purpose">
+          <label><input type="radio" name="purpose" value="quick" checked />빠른 요약</label>
+          <label><input type="radio" name="purpose" value="report" />보고용 요약</label>
+          <label><input type="radio" name="purpose" value="review" />검토용 요약</label>
+        </div>
+      </div>
+
+      <div class="option-group">
+        <h3>요약 길이 <button type="button" class="help-icon" data-help="length" aria-label="요약 길이 도움말">?</button></h3>
+        <div class="radio-row" data-name="length">
+          <label><input type="radio" name="length" value="short" />짧게</label>
+          <label><input type="radio" name="length" value="medium" checked />보통</label>
+          <label><input type="radio" name="length" value="detailed" />자세히</label>
+        </div>
+      </div>
+
+      <div class="option-group">
+        <h3>출력 형식 <button type="button" class="help-icon" data-help="format" aria-label="출력 형식 도움말">?</button></h3>
+        <div class="radio-row" data-name="format">
+          <label><input type="radio" name="format" value="list" checked />목록형</label>
+          <label><input type="radio" name="format" value="prose" />문장형</label>
+          <label><input type="radio" name="format" value="table" />표 형식</label>
+        </div>
+      </div>
+
+      <div class="option-group">
+        <h3>추가 추출 <button type="button" class="help-icon" data-help="extras" aria-label="추가 추출 도움말">?</button></h3>
+        <div class="checkbox-row" data-name="extras">
+          <label><input type="checkbox" name="extras" value="verification" checked />확인 필요사항</label>
+          <label><input type="checkbox" name="extras" value="evidence" checked />원문 근거</label>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn ghost" data-back="1">이전</button>
+        <button id="generateBtn" class="btn primary">AI 분석 시작</button>
+      </div>
+    </section>
+
+    <div class="modal-overlay" id="helpModalOverlay" hidden>
+      <div class="modal-box">
+        <div class="modal-header">
+          <h4 id="helpModalTitle"></h4>
+          <button type="button" class="modal-close" id="helpModalClose" aria-label="닫기">×</button>
+        </div>
+        <ul class="modal-list" id="helpModalList"></ul>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="exportModalOverlay" hidden>
+      <div class="modal-box modal-box-wide">
+        <div class="modal-header">
+          <h4 id="exportModalTitle"></h4>
+          <button type="button" class="modal-close" id="exportModalClose" aria-label="닫기">×</button>
+        </div>
+        <p class="export-note" id="exportModalNote"></p>
+        <textarea class="export-textarea" id="exportModalTextarea" readonly></textarea>
+        <div class="actions">
+          <button type="button" class="btn primary" id="exportModalCopy">복사하기</button>
+        </div>
+      </div>
+    </div>
+
+    <section id="panel-3" class="panel">
+      <div id="resultContainer"></div>
+      <div class="actions">
+        <button class="btn ghost" data-back="2">다시 분석</button>
+        <button id="restartBtn" class="btn text">새 문서 업로드</button>
+      </div>
+      <div class="download-row">
+        <span class="download-label">다운로드:</span>
+        <button class="btn secondary" id="downloadTxt">TXT</button>
+        <button class="btn secondary" id="downloadDocx">DOCX</button>
+        <button class="btn secondary" id="downloadPdf" title="브라우저 인쇄 대화상자에서 PDF로 저장할 수 있습니다">PDF</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<style>
+:root {
+  --bg: #f5f6fa;
+  --card: #ffffff;
+  --text: #1c2033;
+  --muted: #667085;
+  --border: #e1e4ec;
+  --primary: #3457e8;
+  --primary-hover: #2843bf;
+  --danger: #d64545;
+  --accent-soft: #eef1ff;
+  --warn-bg: #fff8e6;
+  --warn-border: #f0dca0;
+  --warn-text: #8a5a00;
+  --badge-bg: #1c2033;
+  --badge-text: #ffffff;
+  --table-head-bg: #f2f4f9;
+  --table-stripe: #fafbfd;
+  --overlay: rgba(15, 18, 30, 0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #13151f;
+    --card: #1b1e2b;
+    --text: #e8eaf2;
+    --muted: #9096ab;
+    --border: #2b2f42;
+    --primary: #8398ff;
+    --primary-hover: #9dadff;
+    --danger: #ff8585;
+    --accent-soft: #232a4d;
+    --warn-bg: #2b2408;
+    --warn-border: #5c4a12;
+    --warn-text: #f0c96a;
+    --badge-bg: #3d4260;
+    --badge-text: #ffffff;
+    --table-head-bg: #20232f;
+    --table-stripe: #1f2230;
+    --overlay: rgba(5, 6, 12, 0.65);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #13151f;
+  --card: #1b1e2b;
+  --text: #e8eaf2;
+  --muted: #9096ab;
+  --border: #2b2f42;
+  --primary: #8398ff;
+  --primary-hover: #9dadff;
+  --danger: #ff8585;
+  --accent-soft: #232a4d;
+  --warn-bg: #2b2408;
+  --warn-border: #5c4a12;
+  --warn-text: #f0c96a;
+  --badge-bg: #3d4260;
+  --badge-text: #ffffff;
+  --table-head-bg: #20232f;
+  --table-stripe: #1f2230;
+  --overlay: rgba(5, 6, 12, 0.65);
+}
+
+:root[data-theme="light"] {
+  --bg: #f5f6fa;
+  --card: #ffffff;
+  --text: #1c2033;
+  --muted: #667085;
+  --border: #e1e4ec;
+  --primary: #3457e8;
+  --primary-hover: #2843bf;
+  --danger: #d64545;
+  --accent-soft: #eef1ff;
+  --warn-bg: #fff8e6;
+  --warn-border: #f0dca0;
+  --warn-text: #8a5a00;
+  --badge-bg: #1c2033;
+  --badge-text: #ffffff;
+  --table-head-bg: #f2f4f9;
+  --table-stripe: #fafbfd;
+  --overlay: rgba(15, 18, 30, 0.55);
+}
+
+* { box-sizing: border-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-family: "Pretendard", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.app {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+.app-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  text-wrap: balance;
+}
+
+.subtitle {
+  color: var(--muted);
+  margin-top: 0;
+}
+
+.steps {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 32px;
+  gap: 8px;
+}
+
+.step {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  padding-bottom: 10px;
+  border-bottom: 3px solid var(--border);
+}
+
+.step span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--text);
+  font-size: 12px;
+  margin-right: 6px;
+}
+
+.step.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
+.step.active span {
+  background: var(--primary);
+  color: #fff;
+}
+
+.panel {
+  display: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+}
+
+.panel.active { display: block; }
+
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 48px 20px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--muted);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dropzone:hover, .dropzone.dragover {
+  border-color: var(--primary);
+  background: var(--accent-soft);
+}
+
+.dropzone:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+.hint-inline { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+.error { color: var(--danger); font-size: 14px; min-height: 20px; }
+
+.sample-list {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sample-list button {
+  text-align: left;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--primary);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.sample-list button:hover { background: var(--accent-soft); }
+
+.file-chip-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+.file-chip.no-match { background: var(--warn-bg); border: 1px solid var(--warn-border); }
+.file-chip .file-chip-name { font-weight: 600; }
+.file-chip .file-chip-meta { color: var(--muted); font-size: 12px; margin-left: 8px; }
+.file-chip .file-chip-tag { font-size: 11px; color: var(--warn-text); margin-left: 8px; }
+
+.file-chip .file-chip-remove {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+}
+
+.file-chip .file-chip-remove:hover { color: var(--danger); }
+
+.option-group { margin-bottom: 24px; }
+.option-group h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; color: var(--muted); }
+.option-desc { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+
+.radio-row, .checkbox-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.radio-row label, .checkbox-row label {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.radio-row label:has(input:checked), .checkbox-row label:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--accent-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.radio-row label small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+.radio-row input, .checkbox-row input { accent-color: var(--primary); }
+
+.help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--muted);
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  vertical-align: middle;
+}
+
+.help-icon:hover { border-color: var(--primary); color: var(--primary); }
+.help-icon:focus-visible, .btn:focus-visible, input:focus-visible, button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+
+.modal-overlay:not([hidden]) { display: flex; }
+
+.modal-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  max-width: 420px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.modal-box-wide { max-width: 560px; }
+
+.export-note {
+  font-size: 12.5px;
+  color: var(--muted);
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0 0 12px;
+  line-height: 1.6;
+}
+
+.export-textarea {
+  width: 100%;
+  height: 40vh;
+  resize: vertical;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+}
+
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.modal-header h4 { margin: 0; font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; color: var(--muted); cursor: pointer; line-height: 1; padding: 4px; }
+.modal-close:hover { color: var(--text); }
+
+.modal-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.modal-list li strong { display: block; font-size: 14px; margin-bottom: 3px; }
+.modal-list li span { display: block; font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+.actions { display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap; }
+.actions-right { justify-content: flex-end; }
+
+.btn { border: none; border-radius: 8px; padding: 11px 20px; font-size: 14px; font-family: inherit; cursor: pointer; }
+.btn.primary { background: var(--primary); color: #fff; }
+.btn.primary:hover { background: var(--primary-hover); }
+.btn.primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+.btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn.text { background: transparent; color: var(--muted); }
+.btn.secondary { background: var(--card); border: 1px solid var(--primary); color: var(--primary); }
+.btn.secondary:hover { background: var(--accent-soft); }
+
+.result-section { margin-bottom: 24px; }
+.result-section:not(:last-child) { padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.result-title { font-size: 15px; font-weight: 700; margin: 0 0 8px; text-wrap: balance; }
+
+.doc-type-badge {
+  display: inline-block;
+  background: var(--badge-bg);
+  color: var(--badge-text);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.block-label { font-size: 12px; font-weight: 700; color: var(--primary); letter-spacing: 0.02em; margin-bottom: 8px; }
+
+.overview-box {
+  background: var(--accent-soft);
+  border-left: 4px solid var(--primary);
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+
+.overview-text { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.9; color: var(--text); letter-spacing: -0.01em; text-wrap: balance; }
+
+.summary-box { margin-bottom: 22px; overflow-x: auto; }
+.summary-box p { margin: 0; font-size: 15px; line-height: 2; letter-spacing: -0.01em; word-break: keep-all; text-indent: 1em; }
+
+.summary-box-highlight { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 8px; padding: 16px 18px; }
+.summary-box-highlight .block-label { color: var(--warn-text); }
+
+.plain-list { margin: 0; padding-left: 1.3em; line-height: 1.8; letter-spacing: -0.01em; word-break: keep-all; }
+.plain-list li { margin-bottom: 10px; }
+.plain-list li::marker { color: var(--text); }
+
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.6; }
+.data-table th, .data-table td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; word-break: keep-all; }
+.data-table th { background: var(--table-head-bg); font-weight: 700; color: var(--text); white-space: nowrap; }
+.data-table tbody tr:nth-child(even) { background: var(--table-stripe); }
+
+.table-empty { color: var(--muted); font-size: 13px; margin: 0; }
+
+.tag-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.tag-chip { background: var(--accent-soft); color: var(--primary); border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; }
+
+.demo-note { font-size: 13px; color: var(--muted); margin-top: 14px; }
+
+.download-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.download-label { font-size: 13px; color: var(--muted); margin-right: 4px; }
+
+@media print {
+  .app-header, .steps, .actions, .download-row, #panel-1, #panel-2, .modal-overlay { display: none !important; }
+  #panel-3 { display: block !important; border: none; padding: 0; }
+  body { background: #fff; color: #000; }
+}
+</style>
+<script>
+const FIXTURES = {"1.+조사요약(2024+부산+방문+관광객+실태조사).pdf":{"short":{"documentType":"조사/통계 보고서","oneLineSummary":"2024년 7월~12월 부산을 방문한 내국인 1,063명과 외국인 1,060명(총 2,123명)을 대상으로 실시한 관광객 실태조사 결과, 전반적 만족도(100점 환산 82.4점)와 재방문 의향(89.6%)은 높은 수준을 유지했으나 세부 지표별로는 소폭의 등락이 나타났다.","sections":[{"key":"coreSummary","title":"핵심 내용","type":"list","items":[{"text":"2024년 7월부터 12월까지 부산을 관광 목적으로 방문한 만 15세 이상 내·외국인 관광객 총 2,123명(내국인 1,063명, 외국인 1,060명)을 대상으로 태블릿PC 자기기입식 설문조사를 실시했다.","evidence":"부산을  관광  목적으로  방문한  만   세  이상  내 외국인  관광객 15."},{"text":"부산여행 세부항목 만족도 조사에서 관광 콘텐츠(즐길거리)가 5점 만점에 4.28점으로 가장 높게 나타났고, 전반적 만족도는 100점 환산 82.4점으로 전년 대비 1.0점 상승했다.","evidence":"점으로  세부항목  중  가장  높게  나타남4.28"},{"text":"향후 부산 재방문 의향은 전체 응답자의 89.6%로 나타났으나 전년(89.8%) 대비 0.2%p 감소했다.","evidence":"부산  재방문  의향에  대해서  조사한  결과 전체  응답자의 가  재방문할  의향이  있는  것으로  나타나 전, 89.6%"},{"text":"내국인 관광객은 평균 체류기간이 매년 짧아지고 당일여행 비율이 크게 늘어난 반면, 외국인 관광객은 평균 체류기간(6.2일)과 인당 총 지출비용($828.4)이 전년보다 증가했다.","evidence":"인당  부산여행  총  지출  비용을  연도별로  살펴보면년 에서   상승한 로  나타남1,  2023  $567.7$260.7 $828.4"},{"text":"장애인 시설에 대한 만족도는 내국인 3.66점, 외국인 4.45점으로 내·외국인 간 격차가 세부항목 중 가장 크게(0.79점) 나타나 개선이 필요한 영역으로 확인됐다.","evidence":"내 외국인별  만족도에  차이가  가장  큰  항목은  장애인  시설 로  외국인    점 대비  내국인    점 만족도 ·‘’(4.45 ) (3.66 )"}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"문화오락·예술비 지출 비용 등 일부 수치는 원문 표기가 불명확하여 정확한 값 확인이 필요하다.","evidence":"문화오락 예술비 지출  비용은 년  기준     천원으로  전년  대비  배  이상  상승한  것으로  나타남‘’ 202447.52"}]}]},"medium":{"documentType":"조사/통계 보고서","oneLineSummary":"2024년 7월~12월 부산을 방문한 내·외국인 관광객 2,123명을 대상으로 소비실태·만족도 등을 조사한 결과, 전반적 만족도(82.4점)와 재방문 의향(89.6%)은 높은 수준이나 세부 지표별로 내국인·외국인 간 상반된 추세가 확인됐다.","sections":[{"key":"surveyOverview","title":"조사 개요","type":"fields","fields":[{"label":"조사 목적","value":"부산 방문 내·외국인 관광객의 소비실태·만족도 등 관광환경 실태를 파악하여 관광정책 수립 및 마케팅 방안 도출의 기초자료로 활용","evidence":"관광객  유치  증대  및  향후  관광수용태세  개선을  위한  관광정책  수립의  기초자료로  활용"},{"label":"조사 대상","value":"부산을 관광 목적으로 방문한 만 15세 이상 내·외국인 관광객","evidence":"부산을  관광  목적으로  방문한  만   세  이상  내 외국인  관광객 15."},{"label":"조사 기간","value":"2024년 7월 ~ 2024년 12월","evidence":"년  월 년   월2024  7  ~  2024  12"},{"label":"조사 방법","value":"태블릿PC를 이용한 자기기입식 설문조사","evidence":"태블릿    를  이용한  자기기입식  설문조사PC"},{"label":"표본 수","value":"총 2,123명 (내국인 1,063명, 외국인 1,060명)","evidence":"총 표본  내국인 표본 외국인 표본2,123 (1,063   , 1,060   )"}]},{"key":"coreResults","title":"핵심 결과","type":"list","items":[{"text":"부산여행 세부항목별 만족도 조사에서 관광 콘텐츠(즐길거리)가 5점 만점에 4.28점으로 가장 높았고, 직원의 친절성(4.27점), 안전·치안 수준(4.24점)이 뒤를 이었다.","evidence":"방문지에서의  직원의  친절성점  안전 치안  수준점  관광지  안내  수준점 순으로  우수‘’(4.27 ),  ‘   , ’(4.24 ),  ‘’(4.22 )"},{"text":"부산여행 전반적 만족도는 100점 환산 82.4점(전년 대비 1.0점 상승)이었으며, 향후 재방문 의향은 89.6%로 전년(89.8%) 대비 0.2%p 소폭 감소했다.","evidence":"전년  대비    점  상승한  기준 1001.082.4"},{"text":"내국인 관광객은 평균 체류기간이 지속적으로 짧아지고 당일여행 비율이 크게 늘어난 반면, 외국인 관광객은 평균 체류기간과 지출비용이 전년보다 증가하는 상반된 추세를 보였다.","evidence":"지속적으로  감소하는  추세가  나타남"}]},{"key":"keyMetrics","title":"주요 수치/지표","type":"fields","fields":[{"label":"전체 표본 수","value":"2,123명 (내국인 1,063명, 외국인 1,060명)","evidence":"총 표본  내국인 표본 외국인 표본2,123 (1,063   , 1,060   )"},{"label":"부산여행 전반적 만족도(통합, 100점 환산)","value":"82.4점 (전년대비 1.0점 상승)","evidence":"전년  대비    점  상승한  기준 1001.082.4"},{"label":"향후 재방문 의향(전체)","value":"89.6% (전년대비 0.2%p 감소)","evidence":"부산  재방문  의향에  대해서  조사한  결과 전체  응답자의 가  재방문할  의향이  있는  것으로  나타나 전, 89.6%"},{"label":"관광 콘텐츠(즐길거리) 만족도","value":"4.28점 (5점 척도, 세부항목 중 최고)","evidence":"점으로  세부항목  중  가장  높게  나타남4.28"}]},{"key":"implications","title":"시사점","type":"list","items":[{"text":"전반적 만족도와 재방문 의향이 높은 수준을 유지하고 있어 관광 경쟁력은 양호하나, '매우 만족' 비중의 상대적 축소 등 세부 지표의 변화는 지속적인 모니터링이 필요함을 시사한다.","evidence":"매우  만족 비율이  상대적으로  낮아져  평균  점수가  하락한  것으로  보임"},{"text":"장애인 시설 만족도가 내국인 3.66점으로 세부항목 중 가장 낮게 나타나 관광약자를 위한 편의시설 개선이 우선 과제로 확인된다.","evidence":"장애인  시설 은     점으로  상대적으로  낮음4.17,  ‘’  3.66"},{"text":"외국인 관광객의 체류기간과 지출 규모가 전년보다 확대되고 있어, 외국인 대상 고부가가치 관광상품과 인프라 확충 전략이 유효할 것으로 보인다.","evidence":"인당  부산여행  총  지출  비용을  연도별로  살펴보면년 에서   상승한 로  나타남1,  2023  $567.7$260.7 $828.4"}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"문화오락·예술비 지출 비용 등 일부 수치는 원문 표기가 불명확하여 정확한 값 확인이 필요하다.","evidence":"문화오락 예술비 지출  비용은 년  기준     천원으로  전년  대비  배  이상  상승한  것으로  나타남‘’ 202447.52"},{"text":"불성실 응답 표본 정제 과정에서 성·연령·지역·국적별 세부 빈도는 산출되지 않아 표본 구성의 세부 특성을 별도로 확인하기 어렵다.","evidence":"별도  성 연령 지역 국적  등에  대한  특성별  빈도는  산출하지  않음·   ·   ·"}]}]},"detailed":{"documentType":"조사/통계 보고서","oneLineSummary":"2024년 7월~12월 부산을 관광 목적으로 방문한 만 15세 이상 내·외국인 관광객 2,123명(내국인 1,063명, 외국인 1,060명)을 태블릿PC 자기기입식 설문으로 조사한 결과, 전반적 만족도(82.4점)와 재방문 의향(89.6%)은 높은 수준을 유지했으나 내국인의 체류기간 단축과 재방문 의향 점수 하락, 외국인의 지출·체류 확대 등 상반된 세부 추세가 확인됐다.","sections":[{"key":"surveyOverview","title":"조사 개요","type":"fields","fields":[{"label":"조사 목적","value":"부산을 방문하는 내·외국인 관광객의 소비실태·만족도 등 관광환경 실태를 파악하여 관광객 유치 증대 및 관광수용태세 개선을 위한 관광정책 수립의 기초자료로 활용하고, 부산 관광 마케팅 방안 도출과 경쟁력 제고를 위한 자료로도 활용","evidence":"관광객  유치  증대  및  향후  관광수용태세  개선을  위한  관광정책  수립의  기초자료로  활용"},{"label":"조사 대상","value":"부산을 관광 목적으로 방문한 만 15세 이상 내·외국인 관광객이며, 조사 장소는 부산역·공항·터미널 등 주요 관문지점과 해운대 해수욕장, 남포동 일원, 서면 일원, 감천문화마을 등 주요 관광지","evidence":"주요  관광지   해운대  해수욕장 남포동  일원 서면  일원 감천문화마을: , , , ,"},{"label":"조사 기간","value":"2024년 7월 ~ 2024년 12월 (6개월간 진행)","evidence":"년  월 년   월2024  7  ~  2024  12"},{"label":"조사 방법","value":"태블릿PC를 이용한 자기기입식 설문조사(구조화된 조사표 사용), 한국어·중국어(간체/번체)·일어·영어·태국어·베트남어·러시아어 등 다국어로 진행","evidence":"한국어 중국어 간체 번체  일어 영어 태국어 베트남어 러시아어, (   ,    ),    ,    , , , "},{"label":"표본 수","value":"총 표본 2,123명 (내국인 1,063명, 외국인 1,060명); 조사기간과 일치하는 전년도(2023년) 통계자료를 기반으로 모집단을 구성하고 표본을 할당함","evidence":"모집단  규모를  파악하고  조사기간와  일치하는  전년도년 통계자료를  바탕으로  모집단을  구성함(2023 )"}]},{"key":"coreResults","title":"핵심 결과","type":"list","items":[{"text":"부산여행 세부항목별 만족도(내·외국인 통합) 조사 결과 관광 콘텐츠(즐길거리)가 5점 만점에 4.28점으로 가장 높았고, 직원의 친절성(4.27점), 안전·치안 수준(4.24점), 관광지 안내 수준(4.22점) 순으로 나타났다. 모든 세부항목이 4점 이상의 높은 만족 수준을 보였다.","evidence":"모든  세부항목이  점  이상의  높은  만족  수준으로  나타남4"},{"text":"내·외국인별로 비교하면 내국인은 관광 콘텐츠(즐길거리)가 4.17점으로 가장 높고 장애인 시설이 3.66점으로 가장 낮았으며, 외국인은 직원의 친절성이 4.53점으로 가장 높고 모든 항목에서 내국인보다 높은 만족도를 보였다.","evidence":"반면 외국인의 경우  직원의 친절성 이    점으로  가장  높고 모든  항목에서  내국인  대비 높은  만족도를 보임, ‘’  4.53, "},{"text":"부산여행 전반적 만족도는 100점 환산 82.4점으로 전년 대비 1.0점 상승했으며, 만족(매우 만족+대체로 만족) 응답이 92.9%, 불만족 응답은 0.1%에 불과했다.","evidence":"응답자의 가  만족 매우  만족    대체로  만족  의견을  나타냈고 불만족 다소  불만족    매우  불만92.9%(‘’ +  ‘’) , (‘’  +  ‘"},{"text":"향후 재방문 의향은 89.6%로 전년(89.8%) 대비 0.2%p 감소했으며, 재방문 의사가 없는 이유로는 '거리가 멀어서'(2건), '부산시내 교통이 복잡해서'(2건), '방문기회가 없을 것 같아서'(1건) 등이 제시됐다.","evidence":"재방문  의사가  없는  이유를  조사한  결과  거리가  멀어서  건  부산시내  교통이  복잡해서  건  방문기회,  ‘’  2 ,  ‘’  2 ,  ‘"},{"text":"내국인 관광객은 부산까지 이동 시 자가용 이용 비율이 71.8%로 가장 높았으며, 평균 체류기간은 지속적으로 감소하는 추세를 보였다.","evidence":"연도별로  부산까지  이동을  위해  이용한  교통수단으로는  자가용 이 로  가장  높은  응답  비율로  나타남,  ‘’  71.8%"},{"text":"외국인 관광객은 인당 총 지출 비용이 2023년 $567.7에서 2024년 $828.4로 $260.7 상승했고, 세부 항목 중 교통·주유비 지출 증가폭이 $258.8로 가장 컸다.","evidence":"세부  지출  항목별로는  교통 주유비의  지출  금액  상승폭이 로  가장  크게  나타남$258.8."}]},{"key":"keyMetrics","title":"주요 수치/지표","type":"fields","fields":[{"label":"전체 표본 수","value":"2,123명 (내국인 1,063명, 외국인 1,060명)","evidence":"총 표본  내국인 표본 외국인 표본2,123 (1,063   , 1,060   )"},{"label":"부산여행 전반적 만족도(통합, 100점 환산)","value":"82.4점 (전년대비 1.0점 상승)","evidence":"전년  대비    점  상승한  기준 1001.082.4"},{"label":"향후 재방문 의향(전체, 100점 환산)","value":"89.6% / 100점 환산 80.2점 (전년대비 0.2%p 감소)","evidence":"년  응답자의  재방문  의향을  점  평균으로  환산하면     점으로  나타남2024580.2"},{"label":"내국인 부산여행 전반적 만족도(100점 환산)","value":"78.9점 (전년대비 0.3점 하락)","evidence":"년의  부산여행의  전반적  만족도는    점  평균으로  환산하면     점으로  전년  대비    점  하락함202410078.90.3"},{"label":"외국인 부산여행 전반적 만족도(100점 환산)","value":"86.0점 (전년대비 2.5점 상승)","evidence":"년     점으로  전년  대비    점 ,  1002024  86.02.5"},{"label":"외국인 인당 총 지출비용(2024)","value":"$828.4 (전년대비 $260.7 증가)","evidence":"인당  부산여행  총  지출  비용을  연도별로  살펴보면년 에서   상승한 로  나타남1,  2023  $567.7$260.7 $828.4"}]},{"key":"implications","title":"시사점","type":"list","items":[{"text":"전반적 만족도와 재방문 의향이 높은 수준을 유지하고 있어 부산의 관광 경쟁력은 전반적으로 양호하나, '매우 만족' 비중의 상대적 축소와 재방문 의향 점수 하락 등은 세부 지표에 대한 지속적 모니터링이 필요함을 보여준다.","evidence":"매우  만족 비율이  상대적으로  낮아져  평균  점수가  하락한  것으로  보임"},{"text":"장애인 시설 만족도가 내국인 3.66점, 내·외국인 간 격차가 세부항목 중 가장 큰 0.79점에 달해 관광약자를 위한 편의시설 확충이 우선적으로 필요함을 시사한다.","evidence":"차이가     점으로  나타남 0.79"},{"text":"외국인 관광객의 체류기간과 지출 규모($828.4)가 확대되는 추세이고 부분 패키지여행(Air-tel) 이용 비율도 47.7%까지 높아진 만큼, 외국인 대상 고부가가치 상품 및 교통·주유 관련 인프라 전략이 유효할 것으로 보인다.","evidence":"부분  패키지  여행의  이용  비율은 로  전년  대비  크게  상승한  것으로  나타남,  ‘(Air  tel)’47.7%"},{"text":"재방문 의향 점수는 내국인(81.9점)이 외국인(78.6점)보다 높지만 두 집단 모두 전년 대비 하락했으며 특히 외국인은 8.5점이나 하락해, 재방문을 유도할 콘텐츠·서비스 개선이 시급함을 시사한다.","evidence":"연도별  부산  재방문  의향은 년     점에서년     점으로    점  하락한  것으로  나타남2023  87.1,  2024  78.6,  8.5"},{"text":"식당 음식 및 가격, 숙박시설 가격 항목이 내·외국인 모두에서 다른 항목보다 상대적으로 낮은 만족도를 보여, 외식업·숙박업의 가격 경쟁력 및 서비스 품질 개선이 필요한 영역으로 확인된다.","evidence":"내 외국인  모두  만족도가  다른  항목과  비교해  상대적으로  낮은  만족도를  보임·"}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"문화오락·예술비 지출 비용 등 일부 수치는 원문 표기가 불명확하여(예: '202447.52') 정확한 값 확인이 필요하다.","evidence":"문화오락 예술비 지출  비용은 년  기준     천원으로  전년  대비  배  이상  상승한  것으로  나타남‘’ 202447.52"},{"text":"불성실 응답 표본 정제 과정에서 성·연령·지역·국적별 세부 빈도는 산출되지 않아 표본 구성의 세부 특성을 별도로 확인하기 어렵다.","evidence":"별도  성 연령 지역 국적  등에  대한  특성별  빈도는  산출하지  않음·   ·   ·"},{"text":"백분율 산출 과정에서 소수점 반올림으로 인해 합산 결과가 100.0%가 아닌 99.9%~100.1%로 나타날 수 있어, 수치 해석 시 라운딩 오차를 감안해야 한다.","evidence":"또는 등으로  나타나는  현상        100.1% 99.9% )"}]}]}},"260626_2026년 5월 소비자상담 빅데이터 동향_보도자료.pdf":{"short":{"documentType":"조사/통계 보고서","oneLineSummary":"2026년 5월 소비자상담은 총 48,621건으로 전월 대비 13.9% 감소했으나, 이른 무더위로 에어컨·티셔츠 관련 상담은 크게 늘었다.","sections":[{"key":"coreSummary","title":"핵심 내용","type":"list","items":[{"text":"2026년 5월 1372소비자상담센터에 접수된 소비자상담은 총 48,621건으로 전월(56,465건) 대비 13.9%(7,844건) 감소했다.","evidence":"2026년 5월 접수된 소비자상담은 총 48,621건으로 전월(56,465건) 대비 13.9% (7,844건) 감소했다."},{"text":"이른 무더위로 에어컨(52.3%), 티셔츠(49.8%) 상담이 전월 대비 약 50% 증가해 품목별 증가율 1·2위를 차지했다.","evidence":"전월(2026년 4월) 대비 상담 증가 폭이 큰 품목은 지난달에 이어 ‘에어컨’(52.3%)이 가장 높았고, 다음으로 ‘티셔츠’(49.8%)"},{"text":"연령대별로는 10대 이하 의상대여(렌트), 20·30대 헬스장, 40·50대 의류·섬유, 60대 이상 각종 건강식품 관련 상담이 가장 많았다.","evidence":"10대 이하는 ‘의상대여(렌트)’, 20대·30대는 ‘헬스장’, 40대·50대는 ‘의류·섬유’, 60대 이상은 ‘각종 건강식품’ 품목 관련 상담이 가장 많았다."},{"text":"전년 동월 대비로는 건물청소서비스(71.0%), 상조서비스(63.1%), 중고자동차중개·매매(38.1%)가 크게 늘었고, 아파트(△65.9%), 신용카드(△59.9%)는 크게 줄었다.","evidence":"전년 동월(’25년 5월) 대비 상담이 증가한 품목은 ‘건물청소서비스’(71.0%), ‘상조서비스’(63.1%), ‘중고자동차중개·매매’(38.1%) 등의 순으로 나타났다."},{"text":"항공여객운송서비스(△31.8%)와 국외여행(△19.6%)은 유류할증료 인상 등 여행 여건 악화로 전월 대비 크게 감소했다.","evidence":"‘항공여객운송서비스’(31.8%), ‘국외여행’(19.6%)이 전월 대비 크게 감소하였는데 이는 유류할증료 인상 등 국외여행 여건 악화가 지속되면서 여행 수요가 줄어든 탓으로 분석된다."}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"보도자료에 조사 목적을 명시한 별도 문장이 없어 전체 내용상 추정하였음.","evidence":""}]}]},"medium":{"documentType":"조사/통계 보고서","oneLineSummary":"한국소비자원과 한국소비자단체협의회가 1372소비자상담센터의 2026년 5월 소비자상담(48,621건, 전월 대비 13.9% 감소)을 분석한 결과, 이른 무더위로 에어컨·티셔츠 상담이 급증하고 연령대별 다발 품목 차이가 뚜렷하게 나타났다.","sections":[{"key":"surveyOverview","title":"조사 개요","type":"fields","fields":[{"label":"조사 목적","value":"1372소비자상담센터에 접수된 소비자상담 빅데이터를 분석해 계절적 요인에 따른 소비 트렌드와 다발 품목을 파악하고 소비자피해 예방 정보를 제공하기 위함(문서에 목적이 별도 문장으로 명시되지 않아 내용상 추정)","evidence":"지난 5월 한 달간 1372소비자상담센터*를 통해 접수된 소비자상담을 분석한 결과, 이른 무더위 등 계절적 요인으로 ‘에어컨’, ‘티셔츠’ 등 여름 준비 품목의 상담이 전월 대비 크게 증가한 것으로 나타났다."},{"label":"조사 대상","value":"1372소비자상담센터에 접수된 2026년 5월 전체 소비자상담 건(48,621건)","evidence":"2026년 5월 접수된 소비자상담은 총 48,621건으로"},{"label":"조사 기간","value":"2026년 5월 한 달간(전월인 2026년 4월, 전년 동월인 2025년 5월과 비교)","evidence":"전년 동월 대비전월 대비 50,908건56,465건48,621건△4.5%△13.9%"},{"label":"조사 방법","value":"1372소비자상담센터(공정거래위원회 운영, 한국소비자단체협의회·한국소비자원·광역지자체 참여)에 접수된 상담 데이터를 품목별·연령대별로 집계·분석","evidence":"공정거래위원회가운영하고한국소비자단체협의회,한국소비자원,광역지자체가참여하여상담을수행하는전국단위소비자상담통합운영시스템(국번없이1372,발신자부담)"},{"label":"표본 수","value":"48,621건(2026년 5월 기준, 전월 56,465건, 전년 동월 50,908건)","evidence":"2026년 5월 접수된 소비자상담은 총 48,621건으로 전월(56,465건) 대비 13.9% (7,844건) 감소했다."}]},{"key":"coreResults","title":"핵심 결과","type":"list","items":[{"text":"2026년 5월 소비자상담은 총 48,621건으로 전월 대비 13.9%(7,844건), 전년 동월 대비 4.5% 감소했다.","evidence":"2026년 5월 접수된 소비자상담은 총 48,621건으로 전월(56,465건) 대비 13.9% (7,844건) 감소했다."},{"text":"무더위 영향으로 에어컨(52.3%)·티셔츠(49.8%) 상담이 전월 대비 크게 증가했고, 필라테스(10.8%)는 업체 폐업에 따른 환불 상담이 다발 요인이었다.","evidence":"‘에어컨’(52.3%)이 가장 높았고, 다음으로 ‘티셔츠’(49.8%), ‘필라테스’(10.8%)"},{"text":"연령대별로는 10대 이하 의상대여, 20·30대 헬스장, 40·50대 의류·섬유, 60대 이상 각종 건강식품 관련 상담이 최다였다.","evidence":"10대 이하는 ‘의상대여(렌트)’, 20대·30대는 ‘헬스장’, 40대·50대는 ‘의류·섬유’, 60대 이상은 ‘각종 건강식품’ 품목 관련 상담이 가장 많았다."}]},{"key":"keyMetrics","title":"주요 수치/지표","type":"fields","fields":[{"label":"2026년 5월 총 상담건수","value":"48,621건","evidence":"2026년 5월 접수된 소비자상담은 총 48,621건으로"},{"label":"전월 대비 증감률","value":"△13.9%(7,844건 감소)","evidence":"전월(56,465건) 대비 13.9% (7,844건) 감소했다."},{"label":"에어컨 전월 대비 증가율","value":"52.3%","evidence":"‘에어컨’(52.3%)이 가장 높았고"},{"label":"건물청소서비스 전년 동월 대비 증가율","value":"71.0%","evidence":"‘건물청소서비스’(71.0%)"}]},{"key":"implications","title":"시사점","type":"list","items":[{"text":"계절적 성수기 품목(에어컨 등) 상담 증가에 대응해 사전 무상수리·AS 관련 소비자 안내 강화가 필요하다.","evidence":"동일하자 발생을 근거로 사업자에게 무상수리를 요구했으나, 사업자가 이를 거부함."},{"text":"업체 폐업으로 인한 환불 미이행(필라테스, 상조서비스 등) 피해가 반복되므로 선불식 서비스 이용 시 주의가 필요하다.","evidence":"업체의 폐업으로 남은 수업을 듣지 못하게 되어 잔여 이용금액 환급을 요구함."},{"text":"연령대별 다발 품목이 뚜렷이 구분되므로 맞춤형 소비자 피해예방 정보 제공이 효과적일 수 있다.","evidence":"10대 이하는 ‘의상대여(렌트)’, 20대·30대는 ‘헬스장’, 40대·50대는 ‘의류·섬유’, 60대 이상은 ‘각종 건강식품’"}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"보도자료에 조사 목적을 명시한 별도 문장이 없어 문맥상 추정하였음.","evidence":""},{"text":"붙임1의 상담사유·판매방법 비율이 전체 상담 대비 비율인지 특정 다발 품목 대비 비율인지 명확히 기술되어 있지 않음.","evidence":"품질·AS관련23.4 %"},{"text":"연령대별 다발 품목 표에서 30대·50대·70대·80대 이상의 품목명이 표 구조상 병합 표기되어 있어 정확한 대응관계는 원문 도표 확인이 필요함.","evidence":"30대342건"}]}]},"detailed":{"documentType":"조사/통계 보고서","oneLineSummary":"한국소비자원과 한국소비자단체협의회가 1372소비자상담센터에 접수된 2026년 5월 소비자상담 48,621건(전월 대비 13.9%, 전년 동월 대비 4.5% 감소)을 분석한 결과, 이른 무더위로 에어컨(52.3%)·티셔츠(49.8%) 상담이 급증했고 연령대별 다발 품목 및 건물청소서비스(전년 동월 대비 71.0%) 등 품목별 변동이 뚜렷하게 나타났다.","sections":[{"key":"surveyOverview","title":"조사 개요","type":"fields","fields":[{"label":"조사 목적","value":"한국소비자원과 한국소비자단체협의회가 1372소비자상담센터에 접수된 소비자상담 빅데이터를 분석하여 계절적 요인(이른 무더위 등)에 따른 소비 트렌드, 연령대별·전년 동월 대비 다발 품목 변화를 파악하고 소비자에게 피해 예방 및 상담신청 안내 정보를 제공하기 위한 것으로 보임(문서에 목적을 명시한 별도 문장은 없어 전체 구성상 추정).","evidence":"한국소비자원(원장 윤수현)과 한국소비자단체협의회(회장 문미란)가 지난 5월 한 달간 1372소비자상담센터*를 통해 접수된 소비자상담을 분석한 결과, 이른 무더위 등 계절적 요인으로 ‘에어컨’, ‘티셔츠’ 등 여름 준비 품목의 상담이 전월 대비 크게 증가한 것으로 나타났다."},{"label":"조사 대상","value":"1372소비자상담센터(공정거래위원회 운영, 한국소비자단체협의회·한국소비자원·광역지자체 참여)에 2026년 5월 한 달간 접수된 전체 소비자상담 48,621건이며, 품목별 세부 집계는 월 200건 이상 접수된 52개 품목을 기준으로 한다.","evidence":"월소비자상담200건이상인52개품목"},{"label":"조사 기간","value":"2026년 5월(1개월) 접수 건을 대상으로 하며, 비교 기준으로 전월인 2026년 4월과 전년 동월인 2025년 5월 수치를 함께 제시함.","evidence":"전년 동월 대비전월 대비 50,908건56,465건48,621건△4.5%△13.9%"},{"label":"조사 방법","value":"공정거래위원회가 운영하고 한국소비자단체협의회, 한국소비자원, 광역지자체가 참여하는 전국단위 소비자상담통합운영시스템(1372)에 접수된 상담 데이터를 품목별, 연령대별, 지역별, 상담사유별, 판매방법별로 집계·분석함.","evidence":"공정거래위원회가운영하고한국소비자단체협의회,한국소비자원,광역지자체가참여하여상담을수행하는전국단위소비자상담통합운영시스템(국번없이1372,발신자부담)"},{"label":"표본 수","value":"48,621건(2026년 5월), 비교치로 2026년 4월 56,465건, 2025년 5월 50,908건이 함께 제시됨.","evidence":"2026년 5월 접수된 소비자상담은 총 48,621건으로 전월(56,465건) 대비 13.9% (7,844건) 감소했다."}]},{"key":"coreResults","title":"핵심 결과","type":"list","items":[{"text":"2026년 5월 1372소비자상담센터에 접수된 소비자상담은 총 48,621건으로 전월(56,465건) 대비 13.9%(7,844건), 전년 동월(50,908건) 대비 4.5% 감소했다. 특히 대표적 다발 품목인 항공여객운송서비스(△31.8%), 국외여행(△19.6%)이 유류할증료 인상 등 여행 여건 악화로 크게 줄어든 영향이 컸다.","evidence":"특히 대표적인 다발 품목인 ‘항공여객운송서비스’(31.8%), ‘국외여행’(19.6%)이 전월 대비 크게 감소하였는데 이는 유류할증료 인상 등 국외여행 여건 악화가 지속되면서 여행 수요가 줄어든 탓으로 분석된다."},{"text":"이른 무더위로 여름 준비 품목인 에어컨(52.3%), 티셔츠(49.8%) 상담이 전월 대비 약 50%씩 급증해 품목별 증가율 1·2위를 차지했으며, 필라테스(10.8%)는 일부 사업장의 폐업·영업중단에 따른 환불 상담이 다발 요인으로 확인됐다.","evidence":"날씨가 더워지면서 계절적 영향으로 ‘에어컨’, ‘티셔츠’ 품목 상담이 약 50% 증가했다. ‘필라테스’는 일부 사업장의 폐업 또는 영업중단으로 인한 환불 상담이 다발 요인으로 확인된다."},{"text":"연령대별 다발 품목은 10대 이하 의상대여(렌트, 23건), 20대·30대 헬스장(각 200건·342건), 40대·50대 의류·섬유(각 213건·179건), 60대 이상 각종 건강식품(60대 188건 등)으로 나타났으며, 의상대여는 졸업사진 시즌 배송 지연·촬영일 전 취소 등 계약불이행 불만이 주를 이뤘다.","evidence":"특히 ‘의상대여(렌트)’ 품목의 경우 졸업사진 촬영 시즌을 맞아 온라인으로 예약한 제품의 배송 지연이나 촬영일 전 업체의 일방적인 취소 통보 등 계약불이행과 관련된 불만이 주를 이뤘다."},{"text":"전년 동월 대비로는 건물청소서비스(71.0%), 상조서비스(63.1%), 중고자동차중개·매매(38.1%), 배달음식(34.6%), 자동차대여(렌트)(28.7%) 순으로 상담이 증가했다. 건물청소서비스는 청소 미흡·사전 미고지 추가비용 청구, 상조서비스는 사업자 폐업·환급 문제, 중고차는 성능기록과 실제 상태 불일치에 따른 후속조치 요구가 주요 불만이었다.","evidence":"전년 동월(’25년 5월) 대비 상담이 증가한 품목은 ‘건물청소서비스’(71.0%), ‘상조서비스’(63.1%), ‘중고자동차중개·매매’(38.1%) 등의 순으로 나타났다."},{"text":"전년 동월 대비 감소 품목은 아파트(△65.9%), 신용카드(△59.9%), 이동전화서비스(△41.3%), 건강(암·기타질병)보험(△22.8%), 일반강습(입시학원 등)(△20.2%) 순이었다.","evidence":"전년 동월(’25년 5월) 대비 상담이 감소한 품목은 ‘아파트’(△65.9%), ‘신용카드’(△59.9%), ‘이동전화서비스’(△41.3%) 등의 순이었다."}]},{"key":"keyMetrics","title":"주요 수치/지표","type":"fields","fields":[{"label":"2026년 5월 총 상담건수","value":"48,621건","evidence":"2026년 5월 접수된 소비자상담은 총 48,621건으로"},{"label":"전월 대비 증감률","value":"△13.9%(7,844건 감소)","evidence":"전월(56,465건) 대비 13.9% (7,844건) 감소했다."},{"label":"전년 동월 대비 증감률","value":"△4.5%","evidence":"50,908건56,465건48,621건△4.5%△13.9%"},{"label":"에어컨 전월 대비 증가율","value":"52.3%(2026.4월 258건→2026.5월 393건)","evidence":"20에어컨3780.72580.53930.84.052.3"},{"label":"건물청소서비스 전년 동월 대비 증가율","value":"71.0%(2025.5월 186건→2026.5월 318건)","evidence":"31건물청소서비스1860.43040.53180.771.04.6"},{"label":"아파트 전년 동월 대비 감소율","value":"△65.9%(2025.5월 672건→2026.5월 229건)","evidence":"48아파트6721.32480.42290.5△65.9△7.7"}]},{"key":"implications","title":"시사점","type":"list","items":[{"text":"계절적 성수기(여름철) 진입 시 에어컨 등 냉방가전의 무상수리·AS 관련 상담이 급증하는 경향이 반복되므로, 성수기 이전 사업자 대상 계약이행·AS 안내 강화가 필요하다.","evidence":"1년 이내 동일하자 발생을 근거로 사업자에게 무상수리를 요구했으나, 사업자가 이를 거부함."},{"text":"필라테스·상조서비스 등 선불식 계약 업종에서 사업자 폐업에 따른 환급 미이행 피해가 반복되고 있어, 선불식 서비스 가입 시 소비자의 사전 확인과 예치금 보호 제도 점검이 필요하다.","evidence":"업체의 폐업으로 남은 수업을 듣지 못하게 되어 잔여 이용금액 환급을 요구함. 업체 측으로부터 향후 입금해 주겠다는 안내를 받았으나 이행되지 않음."},{"text":"연령대별로 다발 품목이 명확히 구분되므로(10대 의상대여, 60대 이상 건강식품 등) 연령 맞춤형 소비자 피해예방 콘텐츠 제작·배포가 효과적일 수 있다.","evidence":"10대 이하는 ‘의상대여(렌트)’, 20대·30대는 ‘헬스장’, 40대·50대는 ‘의류·섬유’, 60대 이상은 ‘각종 건강식품’ 품목 관련 상담이 가장 많았다."},{"text":"중고자동차중개·매매 상담에서 성능기록 정보와 실제 차량 상태 불일치 문제가 계속 제기되고 있어, 성능기록 신뢰성 제고를 위한 제도 개선이 필요하다.","evidence":"‘중고자동차중개·매매’ 품목의 경우 중고 자동차의 실제 상태가 성능기록 정보와 달라 수리 등 후속 조치를 요구하는 상담이 많았다."},{"text":"항공여객운송서비스·국외여행 상담 감소는 유류할증료 인상 등 외부 여건 변화에 따른 여행 수요 감소를 반영하므로, 여행업계 관련 상담 추이를 지속 모니터링할 필요가 있다.","evidence":"유류할증료 인상 등 국외여행 여건 악화가 지속되면서 여행 수요가 줄어든 탓으로 분석된다."}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"보도자료 전체에 조사의 목적을 명시한 별도 문장이 없어, 목적은 보도자료의 전체적 구성과 취지를 바탕으로 추정하였음.","evidence":""},{"text":"붙임1에 제시된 상담사유(품질·AS관련 23.4% 등) 및 판매방법(일반판매 38.9% 등) 비율의 산정 기준(전체 상담 대비인지 특정 다발 품목 대비인지)이 본문에 명확히 기술되어 있지 않음.","evidence":"품질·AS관련23.4 %"},{"text":"연령대별 다발 품목 현황표에서 30대·50대·70대·80대 이상의 품목명이 원문 표 구조상 병합되어 표기되어 있어(예: '30대342건'), 각 연령대와 건수의 정확한 대응관계는 원본 도표 확인이 필요함.","evidence":"30대342건"},{"text":"붙임3 다발 품목 세부 표(52개 품목)의 수치가 텍스트 추출 과정에서 열 구분 없이 이어져 표기되어 있어(예: 에어컨 행 '3780.72580.53930.84.052.3'), 개별 수치의 열 대응은 원본 표 확인으로 재검증이 필요함.","evidence":"20에어컨3780.72580.53930.84.052.3"}]}]}},"kgscode_pdf2026AA917_260612.pdf":{"short":{"documentType":"기타 (기술기준/규격 문서)","oneLineSummary":"액화 이산화탄소 세정설비 제조에 필요한 시설·기술·검사 기준을 규정한 가스안전 분야 상세기준(KGS AA917-2026)이다.","sections":[{"key":"coreSummary","title":"핵심 내용","type":"list","items":[{"text":"이 기준은 「고압가스 안전관리법」 등 관련 법령에 따라 가스기술기준위원회가 심의·의결하고 산업통상자원부가 승인한 액화 이산화탄소 세정설비 제조의 시설·기술·검사 상세기준(KGS AA917-2026)이다.","evidence":"가스기술기준위원회 심의·의결 : 2026년 6월 2일"},{"text":"세정설비 제조자는 가공·용접·조립·세척설비 등 제조설비와 내압·기밀시험설비 등 검사설비를 갖추어야 한다.","evidence":"(1) 가공설비"},{"text":"재료·두께·구조·가공·용접·성능(내압·기밀·용접·작동)·표시 등 세정설비의 제조기술기준을 상세히 규정한다.","evidence":"세정설비의 재료는 그  세정설비의 안전성을 확보하기 위하여  다음 기준에  적합한 것으로 한다."},{"text":"세정설비는 제조시설검사와 제품검사(설계단계검사·생산단계검사)로 구분해 검사하며, 불합격 제품은 절단 등으로 파기한다.","evidence":"세정설비의 검사는 제조시설에 대한 검사와 제품에 대한 검사로 구분한다."},{"text":"부록 A는 생산공정검사·종합공정검사 대상이 되려는 세정설비 제조업소의 품질시스템 운영 일반기준을 정한다.","evidence":"이  기준은  생산단계검사  중  생산공정검사  및  종합공정검사를  통해서  세정설"}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"목차상 설계(3.1), 치수(3.4.2), 열처리(3.7), 재료성능(3.8.2), 수입품 검사(4.5.1) 등 여러 항목이 \"내용 없음\"으로 표기되어 있어, 실제로 해당 규정이 없는 것인지 원문에서 재확인이 필요하다.","evidence":"설계내용 없음3.1   (    )"}]}]},"medium":{"documentType":"기타 (기술기준/규격 문서)","oneLineSummary":"이 문서는 「고압가스 안전관리법」 등에 따라 가스기술기준위원회가 정하고 산업통상자원부가 승인한 액화 이산화탄소 세정설비 제조의 시설·기술·검사 상세기준(KGS AA917-2026)이다.","sections":[{"key":"purpose","title":"문서 목적","type":"text","content":"이 기준은 「고압가스 안전관리법」 제22조의2, 「액화석유가스의 안전관리 및 사업법」 제45조, 「도시가스사업법」 제17조의5, 「수소경제 육성 및 수소안전관리에 관한 법률」 제48조에 따라 가스기술기준위원회가 정한 상세기준으로, 「고압가스 안전관리법」 제3조제5호에 따른 특정설비 중 액화 이산화탄소 세정설비 제조의 시설·기술·검사에 적용된다. 이 기준에 적합하면 관계 법령의 해당 기준에 적합한 것으로 보므로 반드시 지켜야 하는 규정이다.","evidence":"이 기준에 적합하면 동 법령의 해당 기준에 적합한 것으로 보도록 하고 있으므로 이 기준은 반드시 지켜야 합니다."},{"key":"keyContent","title":"핵심 내용","type":"list","items":[{"text":"제조시설 기준(2장)은 세정설비 제조에 필요한 제조설비(가공·용접·조립·세척설비 등)와 검사설비(측정기기, 내압·기밀시험설비, 표준압력계·온도계 등)의 구비 요건을 정한다.","evidence":"(1) 가공설비"},{"text":"제조기술 기준(3장)은 재료, 두께, 구조 및 치수, 가공, 용접, 성능(내압·기밀·용접·작동성능), 표시에 관한 세부 규정을 정한다.","evidence":"세정설비의 재료는 그  세정설비의 안전성을 확보하기 위하여  다음 기준에  적합한 것으로 한다."},{"text":"검사 기준(4장)은 세정설비 검사를 제조시설에 대한 검사와 제품에 대한 검사(설계단계검사·생산단계검사)로 구분하며, 불합격 제품은 파기하도록 정한다.","evidence":"세정설비의 검사는 제조시설에 대한 검사와 제품에 대한 검사로 구분한다."}]},{"key":"keyInfo","title":"주요 정보","type":"list","items":[{"text":"세정설비 내 고압가스설비는 상용압력의 2배 이상의 압력에서 항복을 일으키지 않는 두께와 충분한 강도를 가져야 한다.","evidence":"세정설비  내  고압가스설비는  상용압력의  2 배  이상의  압력에서  항복을  일으키지  않는  두"},{"text":"내압시험은 물을 사용해 상용압력의 1.5배 이상(기체 사용 시 1.25배)의 압력으로 실시하여 누수·변형·이상팽창이 없어야 한다.","evidence":"내압시험은 물을 사용하여 상용압력의 1.5배 이상의 압력으로 실시하였을 때 각 부분에 누수  변형  이상 팽창이 없는 것으로 한다."},{"text":"세정설비에는 KGS FP112 2.6.1에 따른 과압안전장치, 운전압력 모니터링 안전시스템, 이산화탄소 회수 제어 로직을 갖추어야 한다.","evidence":"세정설비에는 내부의 압력이 상용의 압력을 초과하는 경우 즉시 상용의 압력 이하로 되돌릴 수 있도록 고압가스 일반제조의 시설  기술  검사  감리  안전성평가 기준에 따른 KGS FP112(····) 2.6.1"}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"목차상 1.5(기준의 준용), 1.7(종류), 3.1(설계), 3.4.2(치수), 3.7(열처리), 3.8.2(재료성능), 4.5.1(수입품 검사), 4.5.2(검사 일부 생략) 항목은 \"내용 없음\"으로 표기되어 있어, 실제로 규정된 내용이 없는지 원문에서 재확인이 필요하다.","evidence":"설계내용 없음3.1   (    )"},{"text":"이산화탄소 회수 성능 기준의 손실량 허용치(저장량 대비 10% 이하) 관련 단위 표기가 본문 추출 과정에서 위치가 이동되어 있어, 정확한 수치를 원본 문서와 대조 확인할 필요가 있다.","evidence":"손실량이 저장량의 10    이하가 되어야 한다"}]}]},"detailed":{"documentType":"기타 (기술기준/규격 문서)","oneLineSummary":"이 문서는 「고압가스 안전관리법」 제22조의2 등 관련 법령에 따라 가스기술기준위원회가 심의·의결(2026-4호, 2026.6.2.)하고 산업통상자원부가 승인(공고 제2026-424호, 2026.6.12.)한 액화 이산화탄소 세정설비 제조의 시설·기술·검사 상세기준(KGS AA917-2026)이며, 제조설비·검사설비 구비 요건, 재료·두께·구조·용접·성능 등 제조기술기준, 검사 종류·항목·방법 및 제조업소 품질시스템 일반기준(부록 A)까지 포괄한다.","sections":[{"key":"purpose","title":"문서 목적","type":"text","content":"이 기준은 「고압가스 안전관리법」 제22조의2, 「액화석유가스의 안전관리 및 사업법」 제45조, 「도시가스사업법」 제17조의5, 「수소경제 육성 및 수소안전관리에 관한 법률」 제48조에 따라 가스기술기준위원회가 심의·의결(안건번호 2026-4호, 2026.6.2.)하고 산업통상자원부가 승인(공고 제2026-424호, 2026.6.12.)한 상세기준이다. 「고압가스 안전관리법」 제3조제5호에 따른 특정설비 중 액화 이산화탄소를 세탁 등 세정 용도로 사용하는 세정설비의 제조에 관한 시설·기술·검사 기준을 정하며, 이 기준에 적합하면 관계 법령의 해당 기준에 적합한 것으로 보므로 반드시 지켜야 하는 규정이다. 시행일은 2026년 6월 12일이며, 시행일 전 실증특례 시설로 검사에 합격한 세정설비는 이 기준에 적합한 것으로 본다.","evidence":"이 기준에 적합하면 동 법령의 해당 기준에 적합한 것으로 보도록 하고 있으므로 이 기준은 반드시 지켜야 합니다."},{"key":"keyContent","title":"핵심 내용","type":"list","items":[{"text":"제조시설 기준(2장): 세정설비 제조자는 가공·용접·조립·세척설비 등 제조설비와 초음파두께측정기·나사게이지·버니어캘리퍼스 등 측정기기, 내압·기밀시험설비, 표준압력계·표준온도계 등 검사설비를 갖추어야 하며, 부품 생산 전문업체 설비를 이용해도 품질관리에 지장이 없다고 인정되면 해당 설비를 생략할 수 있다.","evidence":"부품 생산에 필요한 설비를  갖추지 않을  수 있다."},{"text":"재료·두께 기준(3.2~3.3): 배관계·기기류 등 가스 접촉 부품은 KS·ASME·ANSI 등 규격에 적합한 재료를 사용해야 하며, 탄소 함유량 0.35% 이상 탄소강, 특정 주철품·구리합금·알루미늄·타이타늄 등은 설계압력·온도 조건에 따라 사용이 제한된다.","evidence":"다음의 재료는 내압  부분의 재료로 사용하지 않도록  한다."},{"text":"구조·성능 기준(3.4, 3.8): 세정설비는 저장조·세정조·증류조·압축기·응축기·칠러·진공펌프 등으로 구성하고, 과압안전장치·압력계(및 온도계)·운전압력 모니터링 안전시스템·이산화탄소 회수 제어 로직을 갖추어야 하며 내압·기밀·작동성능을 만족해야 한다.","evidence":"세정설비는 저장조  세정조 세정드럼   증류조  압축기  응축기  칠러진공펌프 등 , (), , , , (chiller), 세정에 필요한 설비로  구성한다."},{"text":"용접·비파괴검사 기준(3.6, 3.8.1.3): 용접은 검증된 용접시공절차서(WPS)에 따라 수행하고 용접원은 능력을 검증받은 자로 하며, 바깥지름 160㎜를 초과하는 배관 용접부는 방사선투과시험 등 비파괴검사를 실시해 결함이 없어야 한다.","evidence":"용접  작업은 검증된 용접시공절차서에 따라 수행한다(WPS)."},{"text":"검사 기준(4장): 검사는 제조시설검사와 제품검사(설계단계검사·생산단계검사)로 구분하며, 생산단계검사는 자체검사·품질관리능력에 따라 제품확인검사·생산공정검사·종합공정검사 중 제조자가 선택하여 실시하고, 불합격품은 검사원 입회 하에 절단 등으로 파기한다.","evidence":"세정설비의 검사는 제조시설에 대한 검사와 제품에 대한 검사로 구분한다."},{"text":"부록 A(품질시스템 운영 일반기준): 생산공정검사·종합공정검사 대상이 되려는 세정설비 제조업소는 조직·품질시스템·인적자원·시설장비·설계·제조(구매·생산)·자체검사·의무(합격표시 관리, 안전관리) 등에 관한 일반기준을 충족해야 하며, 3개월 이상의 문서화된 품질시스템 이행실적이 있어야 심사를 신청할 수 있다.","evidence":"이  기준은  생산단계검사  중  생산공정검사  및  종합공정검사를  통해서  세정설"}]},{"key":"keyInfo","title":"주요 정보","type":"list","items":[{"text":"고압가스설비 두께: 상용압력의 2배 이상의 압력에서 항복이 발생하지 않는 두께와 충분한 강도를 가져야 하며, 상용압력이 29.4㎫ 이하인 경우 KS B 6750(압력용기 설계 및 제조 일반)에 따라 두께를 계산하거나 ASME BPVC 계산식에 따른 두께 이상이면 적합한 것으로 본다.","evidence":"세정설비  내  고압가스설비는  상용압력의  2 배  이상의  압력에서  항복을  일으키지  않는  두"},{"text":"성능시험 기준: 내압시험은 물 사용 시 상용압력의 1.5배 이상(기체 사용 시 1.25배)의 압력으로, 기밀시험은 상용압력 이상의 기체 압력으로 실시해 누수·변형·이상팽창 등이 없어야 한다.","evidence":"내압시험은 물을 사용하여 상용압력의 1.5배 이상의 압력으로 실시하였을 때 각 부분에 누수  변형  이상 팽창이 없는 것으로 한다."},{"text":"압력계 기준: 세정설비에 사용하는 압력계는 상용압력의 1.5배 이상 2배 이하의 최고눈금을 가져야 하며(디지털 압력계는 측정 가능 최고값이 상용압력의 1.5배 이상), 압축가스배관에는 압력계, 액화가스배관에는 압력계 및 온도계를 설치한다.","evidence":"세정설비에 사용하는 압력계는 상용압력의 1.5 배 이상 2배 이하의 최고 눈금이 있는 것 다만(, 수치로 표현되는 디지털 압력계의 경우에는 측정할 수 있는 최고값이 상용압력의 1.5 배 이상인 것으로 한다 으로 한다)."},{"text":"이산화탄소 회수 성능: 운전 후 세정조를 목표압력까지 회수·저장하는 제어 로직이 작동해야 하며, 이산화탄소 손실량은 세정조 회수 목표압력에서의 밀도와 세정조 내용적을 곱해 산정한 값이 저장량의 10% 이하여야 한다.","evidence":"세정설비에는 운전 후 세정조를 목표압력까지 회수ᆞ저장하는 제어 로직이 작동하는 것으로 이산화탄소의 , 손실량이 저장량의 10    이하가 되어야 한다"},{"text":"용접부 결함 기준: 용접 비드의 폭은 튜브 두께의 3배 이하, 비드 높이는 튜브 두께의 10%를 초과하지 않도록 하며, 용입불량·언더컷·오버랩·균열 등 사용상 지장을 주는 결함이 없어야 한다.","evidence":"용접 비드의 폭은 튜브 두께의 3 배 이하로 하고  비드 높이는 튜브 두께의 , 10   를 초과하지"},{"text":"판정위원회: 세정설비 제조자의 생산공정검사·종합공정검사 대상 심사를 위해 한국가스안전공사에 위원장 1인을 포함해 15인 이내의 위원으로 구성된 판정위원회를 둔다.","evidence":"판정위원회는 위원장   인을 포함한   인  이내의 위원으로 구성한다 15."}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"목차상 1.5(기준의 준용), 1.7(종류), 3.1(설계), 3.4.2(치수), 3.7(열처리), 3.8.2(재료성능), 4.5.1(수입품 검사), 4.5.2(검사 일부 생략) 항목이 모두 \"내용 없음\"으로 표기되어 있어, 이 세정설비 코드에 실제로 해당 규정이 없는 것인지 원문 확정판에서 재확인이 필요하다.","evidence":"설계내용 없음3.1   (    )"},{"text":"배관 두께 계산식(3.3.2.1)에 사용되는 수식 기호(t, P, D, f, C)의 정의는 텍스트로 남아 있으나 실제 수식 형태(분수·지수 등)는 추출 과정에서 소실되어, 정확한 계산 공식은 원본 도표를 대조해 확인해야 한다.","evidence":"t    배관의  두께의 수치: (   )㎜"},{"text":"생산단계검사 주기 표(표 4.1.2.2)의 정기품질검사·공정확인심사·수시품질검사·종합품질관리체계심사 각 주기 수치가 본문 추출 시 순서가 뒤섞여 표기되어 있어, 각 검사종류별 정확한 주기는 원본 표와 대조 확인이 필요하다.","evidence":"정기품질검사개월에   회31"},{"text":"이산화탄소 회수 성능(3.8.3.2) 손실량 허용기준 수치 뒤에 있어야 할 \"%\" 단위 표기의 위치가 본문에서 이동되어 있어, 정확한 기준값(10%)을 원문에서 재확인할 필요가 있다.","evidence":"손실량이 저장량의 10    이하가 되어야 한다"},{"text":"부록 A의 심사항목표(표 4.3.2.2.2(2))에서 공정확인심사·종합품질체계심사 적용 여부(o 표시)가 텍스트로만 추출되어 원래 표의 행·열 대응 관계가 불명확하므로, 각 세부 항목이 어느 심사 유형에 적용되는지는 원본 표를 통해 확인해야 한다.","evidence":"구분판정기준"}]}]}},"인공지능(AI) 활용 가이드.pdf":{"short":{"documentType":"업무 가이드/매뉴얼","oneLineSummary":"인사혁신처가 발간한 공무원 대상 AI 활용 가이드로, 생성형 AI와 프롬프트 작성 기법을 이해하고 실제 업무에 적용하는 방법을 안내한다.","sections":[{"key":"coreSummary","title":"핵심 내용","type":"list","items":[{"text":"인공지능과 생성형 AI의 개념, '다음 단어 예측' 동작원리, 그리고 사실이 아닌 정보를 사실처럼 답변하는 환각(Hallucination) 현상 등 AI 활용의 기초 지식을 설명한다.","evidence":"AI가 실제로 존재하지 않는 정보를 사실인 것처럼 답변할 때 이를 환각(Hallucination) 이라고 합니다."},{"text":"좋은 결과를 얻으려면 구체적이고 명확한 프롬프트가 필요하다는 원칙과 함께, 프롬프트를 구성하는 8가지 요소(지시, 맥락, 페르소나 등)를 소개한다.","evidence":"좋은 프롬프트는 좋은 결과를, 나쁜 프롬프트는 나쁜 결과를 가져옵니다."},{"text":"페르소나 패턴, 생각의 사슬(CoT) 등 다양한 프롬프트 작성 패턴·기법과 RTF, CO-STAR, RACE 등 20여 개의 프롬프트 프레임워크를 사례와 함께 제시한다.","evidence":"프롬프트 기법(Prompting Technique)은 AI 모델로부터 원하는 결과를 효과적으로 얻기 위해 프롬프트를 구조화하고 최적화하는 방법을 의미합니다."},{"text":"요약·정리, 업무 도우미 챗봇, 글쓰기, 보도자료, 정책 시뮬레이션, 아이디어 발굴, 이미지 인식, 데이터 분석 등 실제 공무원 업무 분야별 AI 활용 사례를 제시한다.","evidence":"공무원의  업무는  대부분  규정에  따라  수행되므로,  법령과  규정을  찾아봐야  할 일이 많습니다. 이러한 경우 Google의 NotebookLM을 활용하면 업무 생산성을 높일 수 있습니다."},{"text":"GPTs 챗봇, VBA/VBScript, GAMMA 등 AI Tool을 활용한 업무자동화 사례를 소개하고, 프롬프트에 개인정보를 입력하지 말 것 등 주의사항을 안내한다.","evidence":"□ 주의사항 : 프롬프트에 개인정보 입력 금지"}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"AI 모델별 성능 비교표 등 일부 통계표의 수치·기호 표기에 오류로 보이는 부분이 있어 원문 확인이 필요하다.","evidence":"코드 생성 (HumanEval)92.0%84.9%90.2%84.1%t84.1%"},{"text":"가이드의 예제는 2025년 3월 기준으로 작성되어 있어, LLM 모델이 업데이트되면 예제 프롬프트가 정상 작동하지 않을 수 있다는 점을 감안해야 한다.","evidence":"예제 프롬프트는 LLM 모델에 따라 정상 작동하지 않을 수 있습니다."}]}]},"medium":{"documentType":"업무 가이드/매뉴얼","oneLineSummary":"이 문서는 인사혁신처가 발간한 공무원용 인공지능(AI) 활용 가이드로, AI와 프롬프트의 기본 개념부터 프롬프트 작성 패턴·기법·프레임워크, 업무 분야별 활용 사례, 업무자동화 사례까지 체계적으로 안내한다.","sections":[{"key":"keyConcepts","title":"핵심 개념","type":"list","items":[{"text":"인공지능(AI)은 인간의 지적 능력을 프로그래밍으로 구현한 기술이며, 생성형 AI는 텍스트·이미지·코드 등 새로운 콘텐츠를 만들어내는 AI를 말한다.","evidence":"인공지능이란 ‘인간의 지능적 활동을 모방하고 지원하기 위해 개발된 컴퓨터 시스템과 그 구현 기술’ 이라고 정의할 수 있습니다."},{"text":"프롬프트는 AI에게 작업을 지시하는 질문·명령·설명이며, Instruction·Context·Persona 등 8가지 구성요소로 이루어진다.","evidence":"생성형  AI에서  프롬프트란 AI가  원하는  작업을  수행할  수  있도록  제공하는  질문,  명령  또는  설명을 뜻합니다."},{"text":"생성형 AI는 사실이 아닌 내용을 그럴듯하게 답변하는 환각(Hallucination) 현상이 발생할 수 있어, AI의 한계를 이해하는 것이 중요하다.","evidence":"AI가 실제로 존재하지 않는 정보를 사실인 것처럼 답변할 때 이를 환각(Hallucination) 이라고 합니다."}]},{"key":"procedure","title":"사용 절차","type":"steps","items":[{"text":"해결할 문제를 정의하고 목적에 맞는 초기 프롬프트를 모호하지 않게 구체적이고 명확하게 작성한다.","evidence":"모호성이 발생하지 않도록, 작업 지시는 구체적이고 명확하게 한다."},{"text":"목적, 배경, 제약조건 등 충분한 맥락 정보를 제공하고, 복잡한 작업은 단계별로 나누어 요청한다.","evidence":"목적, 목표, 배경, 최종 독자, 사례, 제약 조건 등 충분한 맥락정보를 제공한다."},{"text":"AI의 답변을 그대로 신뢰하지 말고 검토하여, 중요한 정보나 의사결정 관련 사항은 반드시 외부 자료로 교차 검증한 뒤 활용한다.","evidence":"의사결정과 관련된 사항은 반드시 추가 검증 (교차검증, 출처 확인 등)"}]},{"key":"application","title":"활용 방법","type":"list","items":[{"text":"방대한 정책 연구자료나 법령을 AI로 요약·정리하고, 구글 NotebookLM 등을 활용해 관련 규정을 검색하는 업무 도우미 챗봇으로 활용한다.","evidence":"공무원의  업무는  대부분  규정에  따라  수행되므로,  법령과  규정을  찾아봐야  할 일이 많습니다. 이러한 경우 Google의 NotebookLM을 활용하면 업무 생산성을 높일 수 있습니다."},{"text":"기고문·보도자료·공문서 작성, 정책 시행 시나리오 시뮬레이션, 가상 전문가 토론을 통한 아이디어 발굴 등 글쓰기와 기획 업무에 AI를 활용한다.","evidence":"AI가 각 분야 전문가의 관점에서 문제를 해석하도록 설정하고, 이들 간의 가상 토론을 진행하면 보다 객관적이고 창의적인 아이디어를 도출할 수 있습니다."},{"text":"영수증 이미지에서 정보를 추출하거나 설문 주관식 응답을 분석하는 등 데이터 처리 업무를 수행하고, GPTs·VBA 스크립트·AI 도구를 연계해 반복 업무를 자동화한다.","evidence":"AI를 활용하면 주관식 답변의 긍정도를 평가하여 5점 척도 등의 수치로 변환할 수 있으며, 이를 통해 개선 사항을 보다 쉽게 도출할 수 있습니다."}]},{"key":"cautions","title":"주의사항","type":"list","items":[{"text":"생성형 AI는 환각(Hallucination) 현상이 있어 완전히 제거할 수 없으므로, 답변을 항상 비판적으로 검토해야 한다.","evidence":"환각을 완벽하게 제거할 수 있는 기술적 해결책은 현재 존재하지 않으며, 앞으로도 완전하게 사라지게 할 방법은 없을 것으로 예상됩니다."},{"text":"AI는 보조 도구로만 활용하고, 중요한 정보나 의사결정과 관련된 사항은 반드시 외부 소스로 교차 검증해야 한다.","evidence":"의사결정과 관련된 사항은 반드시 추가 검증 (교차검증, 출처 확인 등)"},{"text":"프롬프트에 개인정보를 입력하지 않아야 하며, GPTs 챗봇 등의 답변이 기관의 공식 입장이 아니라는 점을 명시해야 한다.","evidence":"□ 주의사항 : 프롬프트에 개인정보 입력 금지"}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"AI 모델별 성능 비교표의 일부 수치·기호 표기에 오류로 보이는 부분이 있어 원문 확인이 필요하다.","evidence":"코드 생성 (HumanEval)92.0%84.9%90.2%84.1%t84.1%"},{"text":"가이드의 예제는 2025년 3월 기준으로 작성되어 있어 LLM 모델 업데이트에 따라 정상 작동하지 않을 수 있다는 점을 확인해야 한다.","evidence":"예제 프롬프트는 LLM 모델에 따라 정상 작동하지 않을 수 있습니다."}]}]},"detailed":{"documentType":"업무 가이드/매뉴얼","oneLineSummary":"이 문서는 인사혁신처가 발간한 '인공지능(AI) 활용 가이드'로, 업무 효율성 향상을 목표로 AI·생성형 AI의 개념과 한계, 프롬프트 구성요소·작성단계·패턴·기법·프레임워크, 요약·챗봇·글쓰기·보도자료·정책시뮬레이션·아이디어발굴·이미지인식·데이터분석 등 업무 분야별 활용 사례, GPTs·VBA·AI Tool을 이용한 업무자동화 사례까지 공무원이 실무에서 AI를 활용하는 방법을 총괄적으로 안내하는 매뉴얼이다.","sections":[{"key":"keyConcepts","title":"핵심 개념","type":"list","items":[{"text":"인공지능(AI)은 '인간의 지능적 활동을 모방하고 지원하기 위해 개발된 컴퓨터 시스템과 그 구현 기술'로 정의되며, 콘텐츠 추천·자율주행·자연어처리 등의 형태로 이미 실생활에서 널리 쓰이고 있다.","evidence":"인공지능이란 ‘인간의 지능적 활동을 모방하고 지원하기 위해 개발된 컴퓨터 시스템과 그 구현 기술’ 이라고 정의할 수 있습니다."},{"text":"생성형 AI는 텍스트, 오디오, 이미지, 동영상, 프로그램 코드 등 새로운 콘텐츠를 만들어내는 AI이며, ChatGPT·Claude·Gemini·Perplexity 등 서비스별로 추론력, 코드생성, 요약 등에서 강점이 다르다.","evidence":"생성형 AI란 텍스트, 오디오, 이미지, 동영상, 프로그래밍 코드 등 새로운 콘텐츠를 만들어 내는 인공지능(AI)을 의미합니다."},{"text":"텍스트 생성형 AI는 '다음 단어 예측 원리'에 따라 이전에 학습한 문장·단어를 바탕으로 가장 자연스럽게 이어질 확률이 높은 단어를 선택해 문장을 생성하는 방식으로 동작한다.","evidence":"『다음  단어  예측  원리』를 기반으로  문장을  생성합니다."},{"text":"생성형 AI는 사실에 기반해 정보를 생성하는 것이 아니라 자연스러운 문장이 될 확률에 따라 답변을 생성하므로, 존재하지 않는 정보를 사실처럼 답변하는 환각(Hallucination)이 발생할 수 있고 이를 완전히 없앨 기술은 아직 없다.","evidence":"환각을 완벽하게 제거할 수 있는 기술적 해결책은 현재 존재하지 않으며, 앞으로도 완전하게 사라지게 할 방법은 없을 것으로 예상됩니다."},{"text":"프롬프트는 Instruction(지시), Context(맥락), Persona(역할), Example(예시), Format(형식), Style(스타일), Tone(톤), Input Data(입력데이터) 등 8가지 구성요소로 이루어지며, 이를 명확히 갖출수록 AI가 의도를 정확히 이해한다.","evidence":"프롬프트는 크게8개의 요소로 구성되며, 각각 아래와 같은 역할을 합니다."}]},{"key":"procedure","title":"사용 절차","type":"steps","items":[{"text":"해결할 문제를 정의하고 문제 해결 방향을 설정한 뒤, 모호성이 없도록 구체적이고 명확한 초기 프롬프트를 작성한다.","evidence":"해결할 문제를 정의하고, 문제 해결 방향을 설정한 뒤, 초기 프롬프트를 작성합니다."},{"text":"목적·목표·배경·최종 독자·제약조건 등 충분한 맥락(Context) 정보를 제공하되 불필요한 정보는 제외하여, AI가 더 정확하고 관련성 높은 결과를 낼 수 있도록 한다.","evidence":"충분한 정보를 제공하되, 불필요한 정보는 제외한다."},{"text":"복잡한 프롬프트는 AI를 혼란스럽게 할 수 있으므로, 지시는 간결한 문장 구조와 명확한 지시어를 사용해 작게 나누어 제공한다.","evidence":"복잡한 프롬프트는 AI를 혼란스럽게 할 수 있습니다. 프롬프트는 가능한 단순(Simple)하게 작성한다."},{"text":"논문 작성처럼 복잡한 작업은 한 번에 모든 것을 요구하기보다 브레인스토밍→개요작성→섹션별 상세작성→결론도출과 같이 단계별로 나누어 접근한다.","evidence":"① 주제 선정을 위한 브레인스토밍 →② 개요작성 → ③ 각 섹션별 상세 내용 작성 → ④ 결론 도출"},{"text":"AI 모델이 업그레이드되면 기존 프롬프트의 품질이 저하될 수 있음을 인지하고, 서로 다른 기법을 활용한 다양한 프롬프트를 반복적으로 테스트·분석·조정하여 지속적으로 개선한다.","evidence":"AI 모델이 업그레이드 되면 기존 프롬프트의 품질이 저하될 수 있음을 인지해야 한다."},{"text":"결과를 그대로 신뢰하지 말고 사실 기반 과제와 창의적 과제를 구분해 활용하며, 중요한 정보는 뉴스·논문 등 외부 소스로 검증하고 의사결정 관련 사항은 교차검증·출처 확인 등 추가 검증을 거쳐 최종 활용한다.","evidence":"의사결정과 관련된 사항은 반드시 추가 검증 (교차검증, 출처 확인 등)"}]},{"key":"application","title":"활용 방법","type":"list","items":[{"text":"방대한 정책 연구자료나 보고서를 전체 요약 또는 구조 파악 후 섹션별 요약 방식으로 정리하고, 개인정보보호법 벌칙 조항처럼 흩어진 규정 내용을 표로 정리하는 등 '요약 및 정리' 업무에 활용한다.","evidence":"정책 수립이나 분석업무를 수행할 때 관련 연구자료를 참고하는 경우가 많습니다. 관련 자료가 많고 내용도 방대하기 때문에 요약 작업이 필수적인데, 요약에도 많은 시간이 소요됩니다."},{"text":"엑셀 기능·함수를 질의응답하는 '엑셀 도우미' 챗봇을 만들거나, 구글 NotebookLM에 법령·매뉴얼을 업로드해 관련 규정을 검색·학습하는 업무 도우미 챗봇으로 활용한다.","evidence":"공무원의  업무는  대부분  규정에  따라  수행되므로,  법령과  규정을  찾아봐야  할 일이 많습니다. 이러한 경우 Google의 NotebookLM을 활용하면 업무 생산성을 높일 수 있습니다."},{"text":"기고문·말씀자료·알림글·공문서·외국어 공문 작성과 문장 교정에 활용하며, PRESS·NEWS 등 프레임워크로 성과 홍보용·정보 전달용 보도자료 초안을 작성한다.","evidence":"□ 참고사항 : ChatGPT의 경우 ‘전형적인 공문 형식’을 이해하지 못함"},{"text":"정책 변경 시 예상되는 긍정·부정 시나리오를 AI로 시뮬레이션하거나, 여러 전문가 페르소나 간 가상 토론을 진행시켜 통계 데이터를 다각도로 해석하고 정책 아이디어를 발굴한다.","evidence":"AI가 각 분야 전문가의 관점에서 문제를 해석하도록 설정하고, 이들 간의 가상 토론을 진행하면 보다 객관적이고 창의적인 아이디어를 도출할 수 있습니다."},{"text":"여행 영수증 이미지를 스캔해 항목·금액을 추출하고, 수강생 현황이나 설문 주관식 응답을 분석하며, GPTs 상담 챗봇·VBA/VBScript 코드·GAMMA 등 AI Tool을 연계해 반복적인 문서·엑셀 업무와 PPT 제작을 자동화한다.","evidence":"AI가 추출한 정보를 엑셀에 붙여넣거나 엑셀 파일로 다운로드할 수 있어 후속 작업을 더욱 수월하게 진행할 수 있습니다."}]},{"key":"cautions","title":"주의사항","type":"list","items":[{"text":"생성형 AI는 사실에 기반해 답변하는 것이 아니라 자연스러운 문장이 될 확률에 따라 답변을 생성하므로, 실제로 존재하지 않는 정보를 사실처럼 제시하는 환각(Hallucination)이 발생할 수 있고 이를 완전히 없앨 기술적 해결책은 아직 없다.","evidence":"AI가 실제로 존재하지 않는 정보를 사실인 것처럼 답변할 때 이를 환각(Hallucination) 이라고 합니다."},{"text":"사실 기반 과제와 창의적 과제를 구분해 활용하고, AI는 보조 도구로만 사용해야 한다.","evidence":"- AI는 보조 도구로만 활용"},{"text":"의사결정과 관련된 사항은 교차검증·출처 확인 등 반드시 추가 검증을 거쳐야 하며, 응답의 신뢰성 문제(66.5%)와 보안 우려(51.2%)가 실제 업무 활용을 저해하는 주요 요인으로 지적된다.","evidence":"장애요인 : 응답 내용의 신뢰성 문제(66.5%)와 보안우려(51.2%)가 주요 장애요인."},{"text":"프롬프트에는 개인정보를 입력하지 않아야 하며, 공문서 작성 시 ChatGPT는 전형적인 공문 형식을 이해하지 못하는 등 AI 서비스별로 지원 범위와 한계가 다르다는 점을 인지해야 한다.","evidence":"□ 참고사항 : ChatGPT의 경우 ‘전형적인 공문 형식’을 이해하지 못함"},{"text":"GPTs 기반 상담 챗봇은 업로드한 자료에만 근거해 추론·추측 없이 답변하도록 설계하고, 답변이 소속 기관의 공식 의견이 아니라는 점을 반드시 안내해야 한다.","evidence":"**주의 : 본 답변은 관련 규정과 FAQ를 활용해서 AI가 생성한 답변으로 인사처의 공식적인 의견이 아님을 숙지하여 주세요**"}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"AI 모델별 성능 비교표(Claude·GPT-4·Gemini·Llama)의 일부 수치·기호 표기에 오류로 보이는 부분이 있어 원문과 대조 확인이 필요하다.","evidence":"코드 생성 (HumanEval)92.0%84.9%90.2%84.1%t84.1%"},{"text":"가이드의 예제는 2025년 3월 기준으로 작성된 것으로 안내되어 있어, LLM 모델 업데이트 이후에는 예제 프롬프트가 정상 작동하지 않을 수 있다는 점을 실제 사용 전 확인해야 한다.","evidence":"예제 프롬프트는 LLM 모델에 따라 정상 작동하지 않을 수 있습니다."},{"text":"VBA/VBScript 자동화 코드 예시 중 일부 따옴표·특수문자가 문서 변환 과정에서 깨져 있을 수 있어, 실제 업무에 적용하기 전 코드 원문을 재확인해야 한다.","evidence":""},{"text":"정부 업무 AI 활용 실태와 관련해 인용된 업무 활용률(23.4%) 등 수치가 어느 조사 시점의 자료인지 별도로 확인할 필요가 있다.","evidence":"활용 현황 : 업무 활용률 23.4%, 주로 검색 및 문서작성 참고용으로 제한적 활용."}]}]}},"중소기업 전략기술로드맵(2026-2028)_01 AI_02 세부 분야보고서_03. AI 에이전트.pdf":{"short":{"documentType":"기술/전략 보고서","oneLineSummary":"AI 에이전트는 LLM을 코어 엔진으로 툴 사용과 메모리를 결합해 복합 과업을 자율·연속적으로 수행하는 기술로, 세계 시장이 2024년 52.5억 달러에서 2030년 514.7억 달러(CAGR 46.3%)로 급성장할 전망이며 이에 대응한 14개 중소기업 전략품목과 기술로드맵이 확정되었다.","sections":[{"key":"coreSummary","title":"핵심 내용","type":"list","items":[{"text":"AI 에이전트는 LLM을 코어 엔진으로 툴 사용과 메모리 관리를 결합해 목표 달성까지 복합 업무를 자율·연속적으로 수행하는 시스템으로, 의료·금융·제조·스마트시티 등 전 산업으로 확산되고 있다.","evidence":"을 코어 엔진으로 툴 사용과 메모리 등을 결합하여 과업을 자율LLM, · 연속 수행하는 시스템"},{"text":"AI 에이전트 세계 시장은 2024년 52.5억 달러에서 2030년 514.7억 달러(CAGR 46.3%)로, 국내 시장은 1,825.6억 원에서 2조 6,413.9억 원(CAGR 56.1%)으로 성장할 전망이다.","evidence":"5.25 7.68 11.23 16.43 24.05 35.18 51.47 46.3%"},{"text":"특허 분석 결과 미국(42.5%)과 중국(34.8%)이 출원을 주도하며, 상위 4개 기업의 시장점유율(CR4)이 49.3%로 독과점 수준이 낮아 후발기업의 진입 여지가 있는 것으로 나타났다.","evidence":"상위 개 기업의 시장점유율이 49.3%로 독과점 정도가 낮은 수준으로 분석"},{"text":"기술개발 측면에서는 자율적 문제 해결 능력 강화, 휴먼-에이전트 협업 체계 구축, 대규모 기업 시스템 통합과 도메인 지식 최적화, AI 윤리·투명성 확보가 핵심 이슈로 도출됐다.","evidence":"안전성 및 신뢰성을 위한 휴먼 에이전트 협업 체계 구축 대규모 기업 시스템 통합 및 도메인 지식 기반 최적화 윤리적 책임 및 투명성 확보 기술 고도화"},{"text":"이에 따라 LLM 기반 문서 자동화 에이전트, 고객관리 AI 에이전트, SaaS형 AI 에이전트 플랫폼 등 총 14개 중소기업 전략품목이 확정되어 2026~2028년 기술로드맵으로 제시되었다.","evidence":"전문위원회 평가 및 최종 검토 조정을 통한 전략품목 14개 선정"}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"세계·국내 시장 규모 전망치는 MarketsandMarkets, Grand View Horizon 등 외부 기관의 추정 자료에 근거하므로 산정 기준과 최신성에 대한 확인이 필요하다.","evidence":"AI Agents Market Size, Share, Growth & Latest Trends_MarketsandMarkets('25.04)"}]}]},"medium":{"documentType":"기술/전략 보고서","oneLineSummary":"AI 에이전트는 LLM을 코어 엔진으로 자율적 과업 수행을 구현하는 차세대 AI 기술로, 세계 시장이 2024년 52.5억 달러에서 2030년 514.7억 달러로 급성장할 전망이며 이에 대응해 LLM 기반 문서 자동화 에이전트 등 14개 중소기업 전략품목이 확정되었다.","sections":[{"key":"techDefinition","title":"기술 정의","type":"text","content":"AI 에이전트는 LLM을 코어 엔진으로 하여 툴 사용과 메모리 등을 결합함으로써 사용자 대신 과업을 자율적·연속적으로 수행하는 시스템이다. LLM을 인간의 추론 및 계획 엔진으로 활용해 사용자 목표를 이해하고 복잡한 문제 해결을 위한 최적의 실행 계획을 수립하며, 웹 검색·코드 실행·외부 API 호출 등 다양한 툴을 적재적소에 활용하고 과거 실행 경험과 피드백을 메모리에 저장해 장기적·연속적 과업 수행 능력을 확보하는 것이 특징이다. 단순 반복 작업을 처리하는 기존 RPA를 넘어 상황을 판단하고 비정형 데이터를 처리하는 등 인간 수준의 지능이 필요한 복합적 작업을 처리한다.","evidence":"을 코어 엔진으로 툴 사용과 메모리 등을 결합하여 과업을 자율LLM, · 연속 수행하는 시스템"},{"key":"scope","title":"적용 범위","type":"text","content":"AI 에이전트는 의료 및 헬스케어(진단 보조·개인 건강 코칭), 금융 및 보험(리스크 심사·상품 추천·규제 준수), 교육 및 연구(개인화 학습·연구 과제 관리), 산업 자동화 및 제조(스마트 팩토리 자율 제어·공급망 관리), 스마트 도시(인프라 자율 관리·재난 예측 대응), 에너지 및 환경 관리(에너지 시스템 최적화·환경 규제 모니터링) 등 핵심 산업 분야에서 단순 반복 업무를 넘어선 복합 작업 처리를 중심으로 도입이 가속화되고 있다. 본 보고서는 이 같은 활용 범위를 바탕으로 시장·기술·특허 동향을 분석하여 2026~2028년을 대상으로 한 14개 전략품목 로드맵을 제시한다.","evidence":"의료 및 헬스케어 금융 및 보험 교육 및 연구 산업 자동화 및 제조 스마트 도시 및 사회 안전 에너지 및 환경 관리 등 핵심 산업 분야에서 단순 반복 업무를 넘어선 복합 작업 처리를 중심으로 에이전트의 도입과 업무 자동화 솔루션의 AI 적용이 가속화"},{"key":"developmentNeeds","title":"기술개발 필요성","type":"list","items":[{"text":"(사업적) AI 에이전트 도입으로 업무 생산성을 20% 이상 향상시키고 직원을 전략적·창의적 업무에 집중시키는 효과가 기대되어 산업 지능화 및 경제적 파급효과 창출이 필요하다.","evidence":"에이전트 도입을 통해 업무 생산성을 20% 이상 향상시키고 직원들을 전략적 창의적 업무에 집중시키는 혁신 효과가 기대"},{"text":"(기술적) 현재 AI 에이전트 기술은 초기 단계로 한정된 도구 조합과 재계획 능력의 한계가 있어, 실시간 학습 능력을 갖춘 강화학습 기반 에이전트 개발을 통한 고도 자율성 및 문제 해결력 확보가 필요하다.","evidence":"현재 에이전트 기술은 초기 단계로, 한정된 도구 조합 및 예외 상황 발생 시의 재계획 능력 등에서 성능의 불완전성이 지속"},{"text":"(정책적) 미국·북미가 정부 및 민간의 강력한 투자로 시장을 선도하고 있어 기술 종속 우려가 커지는 가운데, 국가 AI G3 전략 달성을 위한 정책·제도적 지원을 통한 글로벌 기술 선점과 AI 윤리·신뢰성 프레임워크 구축이 필요하다.","evidence":"미국 북미 지역이 정부 및 민간 부문의 강력한 투자에 힘입어 시장 점유율을 선도하고 있어 기술 종속 우려가 증대"}]},{"key":"marketTrends","title":"시장/산업 동향","type":"list","items":[{"text":"AI 에이전트 세계 시장 규모는 2024년 약 52.5억 달러에서 2030년 514.7억 달러로 연평균 46.3% 성장할 것으로 전망된다.","evidence":"5.25 7.68 11.23 16.43 24.05 35.18 51.47 46.3%"},{"text":"AI 에이전트 국내 시장 규모는 2024년 약 1,825.6억 원에서 2030년 2조 6,413.9억 원으로 연평균 56.1% 성장할 것으로 전망되며, 국내 빅테크·통신사 주도의 한국어 특화 에이전트 개발이 초기 성장을 견인하고 있다.","evidence":"182.56 284.98 444.85 694.42 1,083.99 1,692.11 2,641.39 56.1%"},{"text":"금융·헬스케어·제조·IT운영 등 타겟시장에서는 AI 에이전트의 신뢰성 및 안전성 확보, 기존 시스템과의 통합·연동 환경 구축이 주요 이슈로 대두되고 있다.","evidence":"AI 에이전트의 신뢰성 및 안전성 확보, 기존 시스템과의 통합 및 연동 환경 구축 등이 주요 이슈로 대두"}]},{"key":"keyIssues","title":"핵심 이슈","type":"list","items":[{"text":"(기술적) 에이전트가 복잡한 미션 수행 중 맥락을 유지하지 못하고 실패 시 원인 분석 및 대안 탐색 능력이 미흡해 장기 기억·계획 기술과 자기수정·자가학습 기술 고도화가 필요하다.","evidence":"에이전트가 실패 또는 오류가 발생했을 때 스스로 원인을 분석하고 대안을 탐색하는 자기 수정 및 자가 학습 기술 연구가 중요"},{"text":"(기술적) 에이전트의 결정 과정이 투명하게 설명되지 않아 인간의 신뢰 확보가 어려워, 설명 가능 AI(XAI)와 인간이 즉시 개입·제어할 수 있는 안전 메커니즘 개발이 시급하다.","evidence":"에이전트의 결정 과정에 대한 투명한 설명 및 이해가 어려워 인간의 신뢰 확보가 난관으로 설명 가능한 AI(XAI) 기술 개발 시급"},{"text":"(사업적/정책적) AI 에이전트의 자율적 결정에 대한 법적·윤리적 책임 소재를 규명하기 어렵고 학습 데이터의 편향성으로 불공정한 결과가 발생할 위험이 있어, 감사 로그 및 공정성 모니터링 기술 개발이 필요하다.","evidence":"에이전트의 자율적 결정에 대한 법적 윤리적 책임 소재를 규명하기 어려워지며 감사 로그 및 기록 관리 기술 개발 필요"}]},{"key":"implications","title":"시사점","type":"list","items":[{"text":"R&D 필요 기술영역으로 자율 학습 및 복합업무 추론 시스템, 도메인 특화 및 협업 솔루션, 멀티모달 환경 통합 및 실행 시스템이 도출되어 향후 기술개발 방향을 제시한다.","evidence":"필요 기술 영역으로 자율 학습 및 복합 업무 추론 시스템, 도메인 특화 및 협업 솔루션, 멀티모달 환경 통합 및 실행 시스템 등으로 확인"},{"text":"특허 클러스터링 분석을 통해 도출된 기술영역을 기반으로 16개 전략품목 후보군이 도출되었고, 전문가 검토를 거쳐 최종 14개 전략품목이 확정되었다.","evidence":"대응 전략품목 후보군을 기반으로 전문가 검토를 통해 최종적으로 전략 품목 후보군 16개 선정"},{"text":"국내 시장에서 중소기업의 특허 점유율(24.0%)이 대기업(20.3%)보다 높아 시장 진입 자체는 어렵지 않으나, 한국의 HHI 지수(124)가 다른 국가보다 높아 기술 활동 집중도가 높은 편이므로 중소기업 특화 전략품목 개발이 중요하다.","evidence":"국내시장에서의 중소기업의 점유율 분석 결과, 동 분야에서 중소기업의 점유율은 24.0%(20.3%)로 대기업대비 높게 나타나 국내시장에서 중소기업의 시장 진입은 어렵지 않은 것으로 분석"}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"세계·국내 시장 규모 전망치는 MarketsandMarkets, Grand View Horizon 등 외부 기관의 추정 자료에 근거하므로 산정 기준 및 통계의 최신성 확인이 필요하다.","evidence":"AI Agents Market Size, Share, Growth & Latest Trends_MarketsandMarkets('25.04)"},{"text":"특허 분석의 지역적 범위가 한국·미국·일본·유럽·중국(IP5)으로 한정되어 있고 2024년 5월 이후 미공개 특허가 일부 존재할 수 있어 최신 출원 동향은 추가 확인이 필요하다.","evidence":"출원 후 공개까지 1년 6개월이 걸리는 점을 고려할 때 2024년 5월 이후 미공개 특허가 일부 존재"}]}]},"detailed":{"documentType":"기술/전략 보고서","oneLineSummary":"AI 에이전트는 LLM을 코어 엔진으로 툴 사용과 메모리를 결합해 복합 과업을 자율·연속적으로 수행하는 차세대 AI 기술로, 세계 시장이 2024년 52.5억 달러에서 2030년 514.7억 달러(CAGR 46.3%), 국내 시장은 1,825.6억 원에서 2조 6,413.9억 원(CAGR 56.1%)으로 급성장할 전망이며, 이에 대응해 LLM 기반 문서 자동화 에이전트·고객관리 AI 에이전트 등 14개 중소기업 전략품목과 기술로드맵이 확정되었다.","sections":[{"key":"techDefinition","title":"기술 정의","type":"text","content":"AI 에이전트는 LLM(거대 언어 모델)을 코어 엔진으로 하여 툴 사용과 메모리 등을 결합해 사용자 대신 과업을 자율적·연속적으로 수행하는 시스템이다. LLM을 인간의 뇌와 같은 추론 및 계획 엔진으로 활용하여 사용자 목표를 깊이 이해하고 복잡한 문제 해결을 위한 최적의 실행 계획을 수립하는 역할을 수행하며, 웹 검색·코드 실행·외부 API 호출 등 다양한 툴(Tool)을 적재적소에 활용하고 과거의 실행 경험과 피드백을 메모리에 저장해 장기적이고 연속적인 과업 수행 능력을 확보하는 것이 특징이다. 단순한 단발성 질문 응답을 넘어 여러 단계를 거쳐 목표를 달성해야 하는 복잡한 과업을 스스로 인지하고 해결하는 높은 수준의 자율성을 구현하는 것이 핵심이며, 문서 작성·분석 업무 자동화 등 복합 작업을 처리하며 기업 백오피스·고객지원·디지털 비서 등 전 산업 분야로 확장되고 있다. 단순 반복 작업을 처리하는 기존 RPA(Robotic Process Automation)를 넘어 상황을 판단하고 비정형 데이터를 처리하는 등 인간 수준의 지능이 필요한 복합적인 작업을 처리하는 능력을 보유하여 업무 효율을 증대시킨다.","evidence":"을 코어 엔진으로 툴 사용과 메모리 등을 결합하여 과업을 자율LLM, · 연속 수행하는 시스템"},{"key":"scope","title":"적용 범위","type":"text","content":"AI 에이전트 기술은 의료 및 헬스케어(전자의무기록(EMR)과 최신 연구 데이터를 분석한 진단 보조·맞춤형 치료 계획 수립, 24시간 개인 건강 코칭), 금융 및 보험(대출·보험 심사 자율 수행 및 맞춤형 상품 추천, 금융 법규 변화에 따른 규제 준수 보고서 자동 생성), 교육 및 연구(학생별 맞춤형 학습 경로 설계·심화 튜터링, 논문·연구 자료 수집·분석을 통한 연구 가설 수립 보조), 산업 자동화 및 제조(생산·품질·재고 등 다중 시스템 정보를 통합한 스마트 팩토리 자율 제어, 시장 변동성·재고 예측 기반 공급망 관리), 스마트 도시(교통·에너지·폐기물 등 도시 데이터 분석 기반 인프라 자율 관리, CCTV·센서 정보 종합 분석 기반 재난 예측·대응), 에너지 및 환경 관리(전력 사용 패턴 예측 기반 발전·배분 최적화, 대기질·수질 모니터링 및 환경 규제 위반 감지) 등 핵심 산업 전반에서 단순 반복 업무를 넘어선 복합 작업 처리를 중심으로 적용이 가속화되고 있다. 본 보고서는 이러한 활용 범위를 토대로 세계·국내 시장 동향, 기술개발 동향, IP5(한국·미국·일본·유럽·중국) 특허 분석(2004.1.1~2025.10.31 출원분)을 종합하여 2026~2028년을 대상으로 하는 14개 전략품목과 핵심 요소기술 로드맵을 확정·제시한다.","evidence":"의료 및 헬스케어 금융 및 보험 교육 및 연구 산업 자동화 및 제조 스마트 도시 및 사회 안전 에너지 및 환경 관리 등 핵심 산업 분야에서 단순 반복 업무를 넘어선 복합 작업 처리를 중심으로 에이전트의 도입과 업무 자동화 솔루션의 AI 적용이 가속화"},{"key":"developmentNeeds","title":"기술개발 필요성","type":"list","items":[{"text":"(사업적) AI 에이전트는 단순 자동화 단계를 넘어 스스로 복잡한 계획과 다단계 업무를 수행하며 인간의 지적 노동을 보조하는 차세대 핵심 동력으로 부각되고 있으며, 도입 시 업무 생산성을 20% 이상 향상시키고 직원을 전략적·창의적 업무에 집중시키는 혁신 효과가 기대되어 산업별 전문 데이터를 활용한 도메인 특화 에이전트 개발과 합리적 비용 모델 제시가 중요하다.","evidence":"에이전트 도입을 통해 업무 생산성을 20% 이상 향상시키고 직원들을 전략적 창의적 업무에 집중시키는 혁신 효과가 기대"},{"text":"(기술적) 현재 AI 에이전트 기술은 초기 단계로 한정된 도구 조합 및 예외 상황 발생 시의 재계획 능력에서 성능의 불완전성이 지속되므로, 다단계 업무 수행 중 발생하는 오류와 비일관성을 최소화하고 실시간 학습 능력을 갖춘 강화학습 기반 에이전트 개발을 통해 고도 자율성 및 문제 해결력을 확보해야 한다.","evidence":"현재 에이전트 기술은 초기 단계로, 한정된 도구 조합 및 예외 상황 발생 시의 재계획 능력 등에서 성능의 불완전성이 지속"},{"text":"(정책적) 미국·북미 지역이 정부 및 민간 부문의 강력한 투자에 힘입어 시장 점유율을 선도하며 기술 종속 우려가 커지는 가운데, 글로벌 선도 기업 대비 국내 AI 에이전트 기술의 다단계 과업 수행 능력·범용성 격차가 존재하므로 국가 AI G3 전략 달성을 위한 정책·제도적 지원을 통한 기술 주권 확립이 절실하다.","evidence":"글로벌 선도 기업 대비 다단계 과업 수행 능력 및 범용성 측면에서 국내 AI 에이전트 기술의 경쟁력 격차가 존재"},{"text":"(정책적) AI 에이전트의 자율성 증대는 오작동 시의 책임 소재 및 기밀 정보 유출 위험 등 새로운 윤리적 위험을 제기하므로, 국내 최초의 AI 신뢰성 단체 표준 등을 넘어선 실질적인 규범 프레임워크 구축을 통해 안전하고 신뢰할 수 있는 AI 확산을 뒷받침해야 한다.","evidence":"안전하고 신뢰할 수 있는 AI 확산을 위해 국내 최초의 AI 신뢰성 단체 표준 등을 넘어선 실질적인 규범 프레임워크 구축이 필수적"}]},{"key":"marketTrends","title":"시장/산업 동향","type":"list","items":[{"text":"AI 에이전트 세계 시장 규모는 2024년 약 52.5억 달러에서 연평균 46.3% 성장해 2030년 514.7억 달러 규모로 성장할 것으로 전망되며(MarketsandMarkets, '25.04), LLM 기반 추론 및 자율 학습 능력 고도화가 성장의 핵심 동력으로 작용한다.","evidence":"5.25 7.68 11.23 16.43 24.05 35.18 51.47 46.3%"},{"text":"AI 에이전트 국내 시장 규모는 2024년 약 1,825.6억 원에서 연평균 56.1% 성장해 2030년 2조 6,413.9억 원 규모로 성장할 것으로 전망되며(Grand View Horizon), 국내 빅테크·통신사 주도의 한국어·도메인 특화 에이전트 개발이 시장 경쟁을 심화시키고 초기 성장을 견인하고 있다.","evidence":"182.56 284.98 444.85 694.42 1,083.99 1,692.11 2,641.39 56.1%"},{"text":"타겟시장 중 금융 분야는 AI 판단 과정의 투명성 확보 및 규제기관 감사·검증 대응 체계 마련, 헬스케어는 환자 민감정보 보호 및 오진 시 책임소재 명확화, 제조/스마트팩토리는 에이전트 경량화·현장 통합 및 물리적 로봇의 안전성 확보, IT운영은 레거시 시스템(ERP, CRM 등)과의 연동 및 보안체계 마련이 핵심 이슈로 대두되고 있다.","evidence":"기존 사내 시스템 ERP, CRM 등 및 레거시 데이터와의 원활하고 안정적인 연동 환경 구축이 선결 필요"},{"text":"IP5(한국·미국·일본·유럽·중국) 특허 출원 동향을 살펴보면 미국이 42.5%(연평균 407건)로 가장 많은 특허를 출원하고 있으며, 중국 34.8%, 유럽 11.7%, 한국 8.8%, 일본 2.1% 순으로 확인되어 미국과 중국이 시장을 주도하고 있다.","evidence":"국가별 출원 비중을 살펴보면 글로벌 전체 특허 출원 건수 대비 미국이 42.5%의 출원 비중을 차지하고 있어, 가장 많은 특허를 출원하고 있는 것으로 나타났으며, 중국 34.8%, 유럽 11.7%, 한국 8.8%, 일본 2.1% 순으로 확인"},{"text":"기술수명주기 분석 결과 특허 출원인수와 출원건수가 큰 폭으로 증가하는 성장기 단계로 확인되며, 한국·미국·유럽이 일본·중국보다 양적·질적 증가폭이 큰 것으로 나타났다.","evidence":"AI 에이전트 분야의 특허 전체는 성장기로 판단되나 우수 특허 출원은 국가간 상이하며, 한국과 미국과 유럽이 일본과 중국보다 양적 질적 증가폭이 큰 것으로 확인"}]},{"key":"keyIssues","title":"핵심 이슈","type":"list","items":[{"text":"(기술적) 복잡한 미션 수행 시 맥락 유지 및 장기적인 계획 수립 능력이 부족하여 장기 기억 및 계획 기술 고도화가 필요하며, 에이전트가 실패·오류 시 원인 분석 및 대안 탐색이 미흡해 자기 수정 및 자가 학습 기술 연구가 요구된다.","evidence":"에이전트가 실패 또는 오류가 발생했을 때 스스로 원인을 분석하고 대안을 탐색하는 자기 수정 및 자가 학습 기술 연구가 중요"},{"text":"(기술적) 에이전트의 결정 과정에 대한 투명한 설명과 이해가 어려워 인간의 신뢰 확보가 난관이 되고 있어 설명 가능 AI(XAI) 개발이 시급하며, 위험 발생 시 인간이 즉시 제어권을 확보할 수 있는 Safety-by-Design 기반의 안전 제어 기술과 HRI 기반 협업 프로토콜 구축이 필요하다.","evidence":"에이전트의 자율성 레벨을 유연하게 조정하고, 위험 발생 시 인간이 즉시 제어권을 확보할 수 있는 안전 메커니즘 및 HRI 기반의 안전 제어 기술 개발이 중요"},{"text":"(사업적) 범용 LLM의 환각 현상으로 산업적 신뢰도가 낮아 특정 도메인의 전문 용어·절차·규정을 정확히 반영하는 산업 특화 모델 구축이 필수적이며, 한국어 및 비영어권 데이터 기반의 산업 특화 모델 개발 필요성이 커지고 있다.","evidence":"범용 LLM으로는 특정 도메인의 전문 용어, 절차, 내부 규정 등을 정확히 이해하는 데 한계가 있어 환각 현상 없이 고신뢰도를 보장하는 산업 특화 모델 구축이 필수적"},{"text":"(정책적) EU AI Act 강화 등 AI의 책임성 확보에 대한 법적·제도적 요구가 증대하는 가운데, 채용·대출심사 등 민감한 영역에서 AI 결정의 불공정성 문제가 확대되고 있어 감사 로그(Audit Log) 및 공정성 모니터링 기술 개발이 필요하다.","evidence":"EU AI Act 강화 등 AI의 책임성 확보에 대한 법적 제도적 요구가 증대"},{"text":"(사업적) 특허 집중력지수(CR4) 분석 결과 상위 4개 기업의 시장점유율이 49.3%로 독과점 정도가 낮게 나타나 기술 집중화가 낮은 시장으로 판단되나, 한국의 HHI 지수는 124로 다른 국가 대비 상대적으로 높아 국내에서는 기술활동 집중수준이 높아 중소기업의 시장진입이 상대적으로 쉽지 않은 것으로 분석된다.","evidence":"한국의 경우 HHI 지수가 124로 다른 국가 대비 상대적으로 높게 나타나고 기술 활동의 집중수준이 높은 상태이므로 상대적으로 중소기업의 시장진입이 쉽지 않은 것으로 분석"}]},{"key":"implications","title":"시사점","type":"list","items":[{"text":"시장·기술개발 동향 분석 결과 R&D 필요 기술영역으로 자율 학습 및 복합업무 추론 시스템, 도메인 특화 및 협업 솔루션, 멀티모달 환경 통합 및 실행 시스템, 자율 의사결정 및 복합 작업 수행 기술, 산업 도메인 특화/경량화 및 온디바이스 최적화 기술, 다중 에이전트 협업 및 상호작용 프레임워크 기술이 도출되었다.","evidence":"필요 기술 영역으로 자율 학습 및 복합 업무 추론 시스템, 도메인 특화 및 협업 솔루션, 멀티모달 환경 통합 및 실행 시스템 등으로 확인"},{"text":"특허 클러스터링 분석을 통해 도출된 10개 기술영역(지식추론 데이터처리, 금융결제, 고성능 모델 아키텍처, 멀티채널 서비스, 모빌리티, 비전 인식, 상황판단, 실시간 제어, 로봇물류, 적응형 학습 등)을 기반으로 16개 전략품목 후보군이 도출되었고, 전문위원회 평가 및 최종 검토·조정을 통해 14개 전략품목이 확정되었다.","evidence":"대응 전략품목 후보군을 기반으로 전문가 검토를 통해 최종적으로 전략 품목 후보군 16개 선정"},{"text":"확정된 14개 전략품목은 LLM 기반 문서 자동화 에이전트, 고객관리 AI 에이전트, SaaS형 AI 에이전트 플랫폼처럼 산업 전반에 활용되는 범용 품목과, 품질향상·산업안전 지원 에이전트, 푸드테크·기후테크·극한환경용 소·부·장 제조 에이전트처럼 특정 산업에 특화된 품목, AI 에이전트용 LAM·레거시 시스템-AI 연동 솔루션·물리 AI 에이전트처럼 기반 구동 기술 품목으로 구성된다.","evidence":"LLM을 활용하여 다양한 문서 보고서 계약서 등을 자동으로 생성 요약 분류 검증 교정하는 지능형 소프트웨어 에이전트"},{"text":"국내 시장에서 중소기업의 특허 점유율(24.0%)이 대기업(20.3%)보다 높게 나타나 시장 진입 자체는 어렵지 않은 것으로 분석되나, 국내 HHI 지수(124)가 상대적으로 높아 기술활동 집중도를 감안한 차별화된 중소기업 특화 전략품목 개발이 요구된다.","evidence":"국내시장에서의 중소기업의 점유율 분석 결과, 동 분야에서 중소기업의 점유율은 24.0%(20.3%)로 대기업대비 높게 나타나 국내시장에서 중소기업의 시장 진입은 어렵지 않은 것으로 분석"},{"text":"각 전략품목은 공공·민간·중소기업에서도 활용 가능한 온프레미스·경량화 모델, 한국어 특화 파인튜닝, 저비용 구독형(SaaS) 제공, 레거시 시스템 연동 등 대기업 솔루션과 차별화된 중소기업 맞춤형 개발 방향을 공통적으로 제시하고 있어, 중소기업의 AI 전환(AX) 진입장벽을 낮추는 것이 로드맵의 핵심 시사점이다.","evidence":"공공 민간 중소기업에서도 활용하기 위해 온프레미스(On-premise) 구축이 가능하고 특정 도메인 지식에 특화된 고효율 경량 모델 기반의 에이전트 솔루션 개발"}]},{"key":"needsVerification","title":"확인 필요사항","type":"list","items":[{"text":"세계·국내 시장 규모 전망치는 MarketsandMarkets, Grand View Horizon 등 외부 기관의 추정 자료에 근거하므로 산정 기준 및 통계의 최신성 확인이 필요하다.","evidence":"AI Agents Market Size, Share, Growth & Latest Trends_MarketsandMarkets('25.04)"},{"text":"특허 분석의 지역적 범위가 한국·미국·일본·유럽·중국(IP5)으로 한정되어 있고 출원 후 공개까지 시차가 있어 2024년 5월 이후 미공개 특허가 일부 존재할 수 있으므로 최신 출원 동향은 추가 확인이 필요하다.","evidence":"출원 후 공개까지 1년 6개월이 걸리는 점을 고려할 때 2024년 5월 이후 미공개 특허가 일부 존재"},{"text":"각 전략품목의 핵심 요소기술에 제시된 정확도·성공률 등 정량적 기술목표(예: 90%, 95% 등)는 실험실·파일럿 환경 검증 기준이므로, 상용화 단계에서의 실제 성능과는 차이가 있을 수 있어 별도 확인이 필요하다.","evidence":"실험실 환경 검증으로 3종 이상 보호구 미착용 및 3종 이상 위험 행동 인식 정확도 95% 달성"}]}]}}};
+const SAMPLE_NAMES = Object.keys(FIXTURES);
+
+const state = { files: [], matched: [] };
+
+const steps = document.querySelectorAll('.step');
+const panels = document.querySelectorAll('.panel');
+
+function goToStep(n) {
+  steps.forEach((el) => el.classList.toggle('active', Number(el.dataset.step) === n));
+  panels.forEach((el) => el.classList.toggle('active', el.id === `panel-${n}`));
+}
+
+document.querySelectorAll('[data-back]').forEach((btn) => {
+  btn.addEventListener('click', () => goToStep(Number(btn.dataset.back)));
+});
+
+const generateBtn = document.getElementById('generateBtn');
+
+const HELP_CONTENT = {
+  purpose: {
+    title: '요약 목적',
+    items: [
+      { label: '빠른 요약', desc: '문서의 핵심 내용을 짧게 압축해 빠르게 파악합니다.' },
+      { label: '보고용 요약', desc: '공유·보고에 적합하도록 공식적인 문장으로 정리합니다.' },
+      { label: '검토용 요약', desc: '핵심 내용과 함께 확인 필요사항, 리스크, 누락 가능성을 점검합니다.' },
+    ],
+  },
+  length: {
+    title: '요약 길이',
+    items: [
+      { label: '짧게', desc: '핵심 내용만 3~5개 항목으로 간단히 요약합니다.' },
+      { label: '보통', desc: '핵심 내용과 주요 근거를 함께 정리하는 기본 요약입니다.' },
+      { label: '자세히', desc: '문서 구조를 따라 세부 내용, 시사점, 확인 필요사항까지 상세히 정리합니다.' },
+    ],
+  },
+  format: {
+    title: '출력 형식',
+    items: [
+      { label: '목록형', desc: '핵심 내용을 bullet로 정리합니다.' },
+      { label: '문장형', desc: '보고서처럼 자연스러운 문단으로 정리합니다.' },
+      { label: '표 형식', desc: '항목별로 구분하여 표로 정리합니다.' },
+    ],
+  },
+  extras: {
+    title: '추가 추출',
+    items: [
+      { label: '확인 필요사항', desc: '누락, 모호한 표현, 검토가 필요한 내용을 표시합니다.' },
+      { label: '원문 근거', desc: '요약 내용이 나온 페이지 또는 문단을 표시합니다.' },
+    ],
+  },
+};
+
+const helpModalOverlay = document.getElementById('helpModalOverlay');
+const helpModalTitle = document.getElementById('helpModalTitle');
+const helpModalList = document.getElementById('helpModalList');
+
+function openHelpModal(key) {
+  const content = HELP_CONTENT[key];
+  if (!content) return;
+  helpModalTitle.textContent = content.title;
+  helpModalList.innerHTML = '';
+  content.items.forEach((item) => {
+    const li = document.createElement('li');
+    const strong = document.createElement('strong');
+    strong.textContent = item.label;
+    const span = document.createElement('span');
+    span.textContent = item.desc;
+    li.appendChild(strong);
+    li.appendChild(span);
+    helpModalList.appendChild(li);
+  });
+  helpModalOverlay.hidden = false;
+}
+
+function closeHelpModal() { helpModalOverlay.hidden = true; }
+
+document.querySelectorAll('.help-icon').forEach((btn) => {
+  btn.addEventListener('click', () => openHelpModal(btn.dataset.help));
+});
+document.getElementById('helpModalClose').addEventListener('click', closeHelpModal);
+helpModalOverlay.addEventListener('click', (e) => { if (e.target === helpModalOverlay) closeHelpModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !helpModalOverlay.hidden) closeHelpModal(); });
+
+// --- Export fallback modal ---
+// This artifact runs inside a sandboxed preview frame, where a triggered
+// file download or window.print() may silently do nothing depending on the
+// host's permissions. Every export button opens this modal with the same
+// content in a copyable textarea, so the user always has a way to get the
+// result out even if the browser-native download/print action is blocked.
+const exportModalOverlay = document.getElementById('exportModalOverlay');
+const exportModalTitle = document.getElementById('exportModalTitle');
+const exportModalNote = document.getElementById('exportModalNote');
+const exportModalTextarea = document.getElementById('exportModalTextarea');
+
+function openExportModal(title, note, text) {
+  exportModalTitle.textContent = title;
+  exportModalNote.textContent = note;
+  exportModalTextarea.value = text;
+  exportModalOverlay.hidden = false;
+  exportModalTextarea.focus();
+  exportModalTextarea.select();
+}
+
+function closeExportModal() { exportModalOverlay.hidden = true; }
+
+document.getElementById('exportModalClose').addEventListener('click', closeExportModal);
+exportModalOverlay.addEventListener('click', (e) => { if (e.target === exportModalOverlay) closeExportModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !exportModalOverlay.hidden) closeExportModal(); });
+
+document.getElementById('exportModalCopy').addEventListener('click', async () => {
+  exportModalTextarea.focus();
+  exportModalTextarea.select();
+  try {
+    await navigator.clipboard.writeText(exportModalTextarea.value);
+    exportModalNote.textContent = '클립보드에 복사했습니다.';
+  } catch {
+    document.execCommand('copy');
+    exportModalNote.textContent = '텍스트를 전체 선택했습니다. Ctrl+C(또는 Cmd+C)로 복사하세요.';
+  }
+});
+
+function tryDownloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// --- Step 1: Upload (client-side filename match only, no real parsing) ---
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const uploadError = document.getElementById('uploadError');
+const fileChipList = document.getElementById('fileChipList');
+const toStep2 = document.getElementById('toStep2');
+const modeGroup = document.getElementById('modeGroup');
+const sampleList = document.getElementById('sampleList');
+
+SAMPLE_NAMES.forEach((name) => {
+  const li = document.createElement('li');
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = `샘플 사용: ${name}`;
+  btn.addEventListener('click', () => addFiles([{ name, size: 0, __sample: true }]));
+  li.appendChild(btn);
+  sampleList.appendChild(li);
+});
+
+function formatSize(bytes) {
+  if (!bytes) return '샘플 파일';
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function renderFileChips() {
+  fileChipList.innerHTML = '';
+  state.files.forEach((file, idx) => {
+    const matches = Boolean(FIXTURES[file.name]);
+    const li = document.createElement('li');
+    li.className = matches ? 'file-chip' : 'file-chip no-match';
+
+    const left = document.createElement('span');
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'file-chip-name';
+    nameSpan.textContent = file.name;
+    const metaSpan = document.createElement('span');
+    metaSpan.className = 'file-chip-meta';
+    metaSpan.textContent = formatSize(file.size);
+    left.appendChild(nameSpan);
+    left.appendChild(metaSpan);
+    if (!matches) {
+      const tag = document.createElement('span');
+      tag.className = 'file-chip-tag';
+      tag.textContent = '등록된 샘플 아님';
+      left.appendChild(tag);
+    }
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'file-chip-remove';
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', () => { state.files.splice(idx, 1); renderFileChips(); });
+
+    li.appendChild(left);
+    li.appendChild(removeBtn);
+    fileChipList.appendChild(li);
+  });
+
+  const matchedCount = state.files.filter((f) => FIXTURES[f.name]).length;
+  toStep2.disabled = matchedCount === 0;
+  modeGroup.hidden = matchedCount <= 1;
+}
+
+function addFiles(newFiles) {
+  newFiles.forEach((file) => {
+    const exists = state.files.some((f) => f.name === file.name);
+    if (!exists) state.files.push(file);
+  });
+  renderFileChips();
+}
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) addFiles(Array.from(e.dataTransfer.files));
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) { addFiles(Array.from(fileInput.files)); fileInput.value = ''; }
+});
+
+toStep2.addEventListener('click', () => {
+  uploadError.textContent = '';
+  const unmatched = state.files.filter((f) => !FIXTURES[f.name]);
+  state.matched = state.files.filter((f) => FIXTURES[f.name]);
+  if (state.matched.length === 0) {
+    uploadError.textContent = '등록된 샘플 문서와 일치하는 파일이 없습니다.';
+    return;
+  }
+  if (unmatched.length) {
+    alert(`일부 파일은 등록된 샘플이 아니라 제외됩니다:\n${unmatched.map((f) => '- ' + f.name).join('\n')}`);
+  }
+  goToStep(2);
+});
+
+// --- Step 2 -> 3: "Analyze" (instant local lookup, no network) ---
+const resultContainer = document.getElementById('resultContainer');
+let lastRenderedSections = null;
+
+function buildTable(headers, rows, emptyMessage) {
+  if (rows.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'table-empty';
+    p.textContent = emptyMessage || '해당 없음';
+    return p;
+  }
+  const table = document.createElement('table');
+  table.className = 'data-table';
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  headers.forEach((h) => { const th = document.createElement('th'); th.textContent = h; headRow.appendChild(th); });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  rows.forEach((row) => {
+    const tr = document.createElement('tr');
+    row.forEach((cell) => { const td = document.createElement('td'); td.textContent = cell; tr.appendChild(td); });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+function withEvidence(text, evidence, showEvidence) {
+  return showEvidence && evidence ? `${text} (근거: ${evidence})` : text;
+}
+
+function topicParticle(word) {
+  const lastChar = word.trim().slice(-1);
+  const code = lastChar.codePointAt(0) - 0xac00;
+  if (code < 0 || code > 11171) return '는';
+  return code % 28 !== 0 ? '은' : '는';
+}
+
+function ensureSentenceEnd(text) {
+  const trimmed = text.trim();
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+function renderSectionContent(sec, format, showEvidence) {
+  if (sec.type === 'text') {
+    const p = document.createElement('p');
+    p.textContent = withEvidence(sec.content, sec.evidence, showEvidence);
+    return p;
+  }
+  if (sec.type === 'fields') {
+    if (format === 'table') {
+      const headers = showEvidence ? ['항목', '내용', '원문 근거'] : ['항목', '내용'];
+      return buildTable(headers, sec.fields.map((f) => (showEvidence ? [f.label, f.value, f.evidence || ''] : [f.label, f.value])));
+    }
+    if (format === 'prose') {
+      const p = document.createElement('p');
+      p.textContent = sec.fields
+        .map((f) => ensureSentenceEnd(`${f.label}${topicParticle(f.label)} ${withEvidence(f.value, f.evidence, showEvidence)}`))
+        .join(' ');
+      return p;
+    }
+    const ul = document.createElement('ul');
+    ul.className = 'plain-list';
+    sec.fields.forEach((f) => {
+      const li = document.createElement('li');
+      const strong = document.createElement('strong');
+      strong.textContent = `${f.label}: `;
+      li.appendChild(strong);
+      li.appendChild(document.createTextNode(withEvidence(f.value, f.evidence, showEvidence)));
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+  const texts = sec.items.map((it) => withEvidence(it.text, it.evidence, showEvidence));
+  if (format === 'table') return buildTable(['번호', '내용'], texts.map((t, i) => [i + 1, t]));
+  if (format === 'prose') {
+    const p = document.createElement('p');
+    p.textContent = texts.map(ensureSentenceEnd).join(' ');
+    return p;
+  }
+  const listEl = document.createElement(sec.type === 'steps' ? 'ol' : 'ul');
+  listEl.className = 'plain-list';
+  texts.forEach((t) => { const li = document.createElement('li'); li.textContent = t; listEl.appendChild(li); });
+  return listEl;
+}
+
+function buildSection(section, options) {
+  const a = section.analysis;
+  const { format, purpose, showVerification, showEvidence } = options;
+  const wrap = document.createElement('div');
+  wrap.className = 'result-section';
+
+  if (section.title) {
+    const h = document.createElement('h4');
+    h.className = 'result-title';
+    h.textContent = section.title;
+    wrap.appendChild(h);
+  }
+
+  const typeBadge = document.createElement('span');
+  typeBadge.className = 'doc-type-badge';
+  typeBadge.textContent = a.documentType;
+  wrap.appendChild(typeBadge);
+
+  const oneLineBox = document.createElement('div');
+  oneLineBox.className = 'overview-box';
+  const oneLineText = document.createElement('p');
+  oneLineText.className = 'overview-text';
+  oneLineText.textContent = a.oneLineSummary;
+  oneLineBox.appendChild(oneLineText);
+  wrap.appendChild(oneLineBox);
+
+  const addBlock = (title, contentEl, highlight) => {
+    const block = document.createElement('div');
+    block.className = highlight ? 'summary-box summary-box-highlight' : 'summary-box';
+    const blockLabel = document.createElement('div');
+    blockLabel.className = 'block-label';
+    blockLabel.textContent = title;
+    block.appendChild(blockLabel);
+    block.appendChild(contentEl);
+    wrap.appendChild(block);
+  };
+
+  if (purpose === 'quick') {
+    const bullets = [];
+    a.sections.forEach((sec) => {
+      if (sec.key === 'needsVerification') return;
+      if (sec.type === 'list' || sec.type === 'steps') sec.items.forEach((it) => bullets.push({ text: it.text, evidence: it.evidence }));
+      else if (sec.type === 'fields') sec.fields.forEach((f) => bullets.push({ text: `${f.label}: ${f.value}`, evidence: f.evidence }));
+      else if (sec.type === 'text') bullets.push({ text: sec.content, evidence: sec.evidence });
+    });
+    const condensedSection = { type: 'list', items: bullets.slice(0, 5) };
+    addBlock('핵심 내용', renderSectionContent(condensedSection, format, showEvidence));
+    return wrap;
+  }
+
+  let sections = a.sections.filter((sec) => sec.key !== 'needsVerification' || showVerification);
+
+  if (purpose === 'review') {
+    const verifSec = sections.find((sec) => sec.key === 'needsVerification');
+    if (verifSec) {
+      addBlock(verifSec.title, renderSectionContent(verifSec, format, showEvidence), true);
+      sections = sections.filter((sec) => sec.key !== 'needsVerification');
+    }
+  }
+
+  sections.forEach((sec) => addBlock(sec.title, renderSectionContent(sec, format, showEvidence)));
+  return wrap;
+}
+
+function renderResult(data, options) {
+  resultContainer.innerHTML = '';
+  if (data.mode === 'individual') {
+    data.items.forEach((item) => resultContainer.appendChild(buildSection({ title: item.name, analysis: item.analysis }, options)));
+  } else {
+    const title = data.fileNames && data.fileNames.length > 1 ? `통합 분석 (${data.fileNames.length}개 문서)` : null;
+    resultContainer.appendChild(buildSection({ title, analysis: data.analysis }, options));
+  }
+}
+
+generateBtn.addEventListener('click', () => {
+  const modeInput = document.querySelector('input[name="mode"]:checked');
+  const mode = modeInput ? modeInput.value : 'combined';
+  const length = document.querySelector('input[name="length"]:checked').value;
+  const options = {
+    purpose: document.querySelector('input[name="purpose"]:checked').value,
+    format: document.querySelector('input[name="format"]:checked').value,
+    showVerification: document.querySelector('input[name="extras"][value="verification"]').checked,
+    showEvidence: document.querySelector('input[name="extras"][value="evidence"]').checked,
+  };
+
+  let data;
+  if (state.matched.length > 1 && mode === 'individual') {
+    data = { mode: 'individual', items: state.matched.map((f) => ({ name: f.name, analysis: FIXTURES[f.name][length] })) };
+  } else if (state.matched.length === 1) {
+    data = { mode: 'combined', fileNames: [state.matched[0].name], analysis: FIXTURES[state.matched[0].name][length] };
+  } else {
+    alert('여러 문서를 하나로 합친 통합 분석은 이 데모에서 지원하지 않습니다. 문서를 하나씩 분석해주세요.');
+    return;
+  }
+
+  lastRenderedSections = data.mode === 'individual'
+    ? data.items.map((it) => ({ title: it.name, analysis: it.analysis }))
+    : [{ title: data.fileNames.length > 1 ? `통합 분석 (${data.fileNames.length}개 문서)` : data.fileNames[0], analysis: data.analysis }];
+
+  renderResult(data, options);
+  goToStep(3);
+});
+
+// --- Step 3: Download / Restart ---
+function sectionsToText(sections) {
+  const withEv = (t, e) => (e ? `${t} (근거: ${e})` : t);
+  return sections
+    .map((s) => {
+      const a = s.analysis;
+      const parts = [`## ${s.title}`, `문서 유형: ${a.documentType}`, '', '[한 줄 요약]', a.oneLineSummary];
+      a.sections.forEach((sec) => {
+        parts.push('', `[${sec.title}]`);
+        if (sec.type === 'fields') parts.push(sec.fields.map((f) => `- ${f.label}: ${withEv(f.value, f.evidence)}`).join('\n'));
+        else if (sec.type === 'steps') parts.push(sec.items.map((it, i) => `${i + 1}. ${withEv(it.text, it.evidence)}`).join('\n'));
+        else if (sec.type === 'list') parts.push(sec.items.map((it) => `- ${withEv(it.text, it.evidence)}`).join('\n'));
+        else if (sec.type === 'text') parts.push(withEv(sec.content, sec.evidence));
+      });
+      return parts.join('\n');
+    })
+    .join('\n\n----------------------------\n\n');
+}
+
+document.getElementById('downloadTxt').addEventListener('click', () => {
+  if (!lastRenderedSections) return;
+  const text = sectionsToText(lastRenderedSections);
+  try {
+    tryDownloadBlob(new Blob([text], { type: 'text/plain;charset=utf-8' }), '문서분석결과.txt');
+  } catch (err) {
+    console.error('TXT download failed:', err);
+  }
+  openExportModal('TXT 내보내기', '다운로드가 시작되지 않았다면, 아래 텍스트를 복사해서 사용하세요.', text);
+});
+
+document.getElementById('downloadPdf').addEventListener('click', () => {
+  if (!lastRenderedSections) return;
+  const text = sectionsToText(lastRenderedSections);
+  try {
+    window.print();
+  } catch (err) {
+    console.error('print failed:', err);
+  }
+  openExportModal(
+    'PDF로 저장',
+    '인쇄 창이 뜨지 않았다면, 브라우저 메뉴에서 인쇄(Ctrl+P 또는 Cmd+P)를 눌러보거나 아래 텍스트를 복사해서 사용하세요.',
+    text,
+  );
+});
+
+// --- Minimal client-side .docx builder (hand-rolled uncompressed ZIP + OOXML) ---
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) {
+    crc ^= bytes[i];
+    for (let j = 0; j < 8; j++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function u16(n) { return [n & 0xff, (n >> 8) & 0xff]; }
+function u32(n) { return [n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff, (n >>> 24) & 0xff]; }
+
+function buildZip(files) {
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  const dosTime = 0;
+  const dosDate = 0x21;
+
+  files.forEach((f) => {
+    const nameBytes = new TextEncoder().encode(f.name);
+    const crc = crc32(f.data);
+    const size = f.data.length;
+
+    const localHeader = new Uint8Array([
+      0x50, 0x4b, 0x03, 0x04, 20, 0, 0, 0, 0, 0,
+      ...u16(dosTime), ...u16(dosDate), ...u32(crc), ...u32(size), ...u32(size),
+      ...u16(nameBytes.length), ...u16(0),
+    ]);
+    localParts.push(localHeader, nameBytes, f.data);
+
+    const centralHeader = new Uint8Array([
+      0x50, 0x4b, 0x01, 0x02, 20, 0, 20, 0, 0, 0, 0, 0,
+      ...u16(dosTime), ...u16(dosDate), ...u32(crc), ...u32(size), ...u32(size),
+      ...u16(nameBytes.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset),
+    ]);
+    centralParts.push(centralHeader, nameBytes);
+    offset += localHeader.length + nameBytes.length + f.data.length;
+  });
+
+  const centralStart = offset;
+  let centralSize = 0;
+  centralParts.forEach((p) => { centralSize += p.length; });
+
+  const eocd = new Uint8Array([
+    0x50, 0x4b, 0x05, 0x06, ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length),
+    ...u32(centralSize), ...u32(centralStart), ...u16(0),
+  ]);
+
+  return new Blob([...localParts, ...centralParts, eocd], {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+}
+
+function escapeXml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+function paraXml(text, opts) {
+  opts = opts || {};
+  const bold = opts.bold ? '<w:b/>' : '';
+  const size = opts.size ? `<w:sz w:val="${opts.size}"/>` : '';
+  const rPr = bold || size ? `<w:rPr>${bold}${size}</w:rPr>` : '';
+  return `<w:p><w:r>${rPr}<w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`;
+}
+
+function buildDocumentXml(sections) {
+  const withEv = (t, e) => (e ? `${t} (근거: ${e})` : t);
+  let body = '';
+  sections.forEach((s) => {
+    const a = s.analysis;
+    body += paraXml(s.title, { bold: true, size: 32 });
+    body += paraXml(`문서 유형: ${a.documentType}`);
+    body += paraXml('한 줄 요약', { bold: true, size: 26 });
+    body += paraXml(a.oneLineSummary);
+    a.sections.forEach((sec) => {
+      body += paraXml(sec.title, { bold: true, size: 26 });
+      if (sec.type === 'fields') sec.fields.forEach((f) => { body += paraXml(`${f.label}: ${withEv(f.value, f.evidence)}`); });
+      else if (sec.type === 'steps') sec.items.forEach((it, i) => { body += paraXml(`${i + 1}. ${withEv(it.text, it.evidence)}`); });
+      else if (sec.type === 'list') sec.items.forEach((it) => { body += paraXml(`• ${withEv(it.text, it.evidence)}`); });
+      else if (sec.type === 'text') body += paraXml(withEv(sec.content, sec.evidence));
+    });
+  });
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:body>${body}<w:sectPr/></w:body>
+</w:document>`;
+}
+
+document.getElementById('downloadDocx').addEventListener('click', () => {
+  if (!lastRenderedSections) return;
+  const text = sectionsToText(lastRenderedSections);
+  try {
+    const enc = new TextEncoder();
+    const docXml = buildDocumentXml(lastRenderedSections);
+    const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+    const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+    const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`;
+
+    const files = [
+      { name: '[Content_Types].xml', data: enc.encode(contentTypes) },
+      { name: '_rels/.rels', data: enc.encode(rootRels) },
+      { name: 'word/document.xml', data: enc.encode(docXml) },
+      { name: 'word/_rels/document.xml.rels', data: enc.encode(docRels) },
+    ];
+
+    tryDownloadBlob(buildZip(files), '문서분석결과.docx');
+  } catch (err) {
+    console.error('DOCX download failed:', err);
+  }
+  openExportModal(
+    'DOCX 내보내기',
+    'DOCX 다운로드가 시작되지 않았다면, 아래 텍스트를 복사해서 워드 문서에 붙여넣으세요.',
+    text,
+  );
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+  state.files = [];
+  state.matched = [];
+  fileInput.value = '';
+  renderFileChips();
+  resultContainer.innerHTML = '';
+  goToStep(1);
+});
+</script>

@@ -1,0 +1,19 @@
+{
+  "name": "doc-summary-app",
+  "version": "1.0.0",
+  "description": "AX 솔루션 - 문서 요약 프로토타입",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "dependencies": {
+    "cfb": "^1.2.2",
+    "docx": "^9.0.2",
+    "express": "^4.19.2",
+    "mammoth": "^1.7.2",
+    "multer": "^2.0.0",
+    "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.15.0",
+    "yauzl": "^3.4.0"
+  }
+}

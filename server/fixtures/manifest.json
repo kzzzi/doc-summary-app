@@ -1,0 +1,27 @@
+{
+  "1.+조사요약(2024+부산+방문+관광객+실태조사).pdf": {
+    "short": "pdf1_short.json",
+    "medium": "pdf1_medium.json",
+    "detailed": "pdf1_detailed.json"
+  },
+  "260626_2026년 5월 소비자상담 빅데이터 동향_보도자료.pdf": {
+    "short": "pdf2_short.json",
+    "medium": "pdf2_medium.json",
+    "detailed": "pdf2_detailed.json"
+  },
+  "kgscode_pdf2026AA917_260612.pdf": {
+    "short": "pdf3_short.json",
+    "medium": "pdf3_medium.json",
+    "detailed": "pdf3_detailed.json"
+  },
+  "인공지능(AI) 활용 가이드.pdf": {
+    "short": "pdf4_short.json",
+    "medium": "pdf4_medium.json",
+    "detailed": "pdf4_detailed.json"
+  },
+  "중소기업 전략기술로드맵(2026-2028)_01 AI_02 세부 분야보고서_03. AI 에이전트.pdf": {
+    "short": "pdf5_short.json",
+    "medium": "pdf5_medium.json",
+    "detailed": "pdf5_detailed.json"
+  }
+}
