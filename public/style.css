@@ -513,13 +513,6 @@ body {
   color: #8a5a00;
 }
 
-mark {
-  background: #fff3c4;
-  color: inherit;
-  border-radius: 3px;
-  padding: 0 2px;
-}
-
 .plain-list {
   margin: 0;
   padding-left: 1.3em;
