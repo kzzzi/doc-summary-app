@@ -116,11 +116,35 @@ body {
 .dropzone {
   border: 2px dashed var(--border);
   border-radius: 10px;
-  padding: 48px 20px;
+  padding: 40px 20px;
   text-align: center;
   cursor: pointer;
   color: var(--muted);
   transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dropzone-icon {
+  color: var(--muted);
+  margin-bottom: 12px;
+  transition: color 0.15s ease;
+}
+
+.dropzone:hover .dropzone-icon,
+.dropzone.dragover .dropzone-icon {
+  color: var(--primary);
+}
+
+.dropzone-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dropzone-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .dropzone:hover,
@@ -487,6 +511,13 @@ body {
 
 .summary-box-highlight .block-label {
   color: #8a5a00;
+}
+
+mark {
+  background: #fff3c4;
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
 }
 
 .plain-list {

@@ -47,6 +47,7 @@ const HELP_CONTENT = {
   extras: {
     title: '추가 추출',
     items: [
+      { label: '핵심 키워드', desc: '문서를 대표하는 핵심 단어를 추출해 결과 하단에 표시하고, 본문에서 옅게 강조합니다.' },
       { label: '확인 필요사항', desc: '누락, 모호한 표현, 검토가 필요한 내용을 표시합니다.' },
       { label: '원문 근거', desc: '요약 내용이 나온 페이지 또는 문단을 표시합니다.' },
     ],
@@ -148,6 +149,12 @@ function addFiles(newFiles) {
 }
 
 dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    fileInput.click();
+  }
+});
 
 dropzone.addEventListener('dragover', (e) => {
   e.preventDefault();
@@ -208,7 +215,7 @@ toStep2.addEventListener('click', async () => {
 // --- Step 2 -> 3: Analyze ---
 const resultContainer = document.getElementById('resultContainer');
 
-function buildTable(headers, rows, emptyMessage) {
+function buildTable(headers, rows, emptyMessage, keywords) {
   if (rows.length === 0) {
     const p = document.createElement('p');
     p.className = 'table-empty';
@@ -234,7 +241,7 @@ function buildTable(headers, rows, emptyMessage) {
     const tr = document.createElement('tr');
     row.forEach((cell) => {
       const td = document.createElement('td');
-      td.textContent = cell;
+      appendHighlighted(td, String(cell), keywords);
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
@@ -246,6 +253,86 @@ function buildTable(headers, rows, emptyMessage) {
 
 function withEvidence(text, evidence, showEvidence) {
   return showEvidence && evidence ? `${text} (근거: ${evidence})` : text;
+}
+
+// --- 핵심 키워드: client-side frequency extraction + inline highlighting ---
+const STOPWORDS = new Set([
+  '그리고', '그러나', '하지만', '또한', '그래서', '따라서', '즉', '이는', '있다', '한다',
+  '있으며', '하며', '있는', '하는', '것이다', '것을', '것은', '수있다', '대한', '통해',
+  '위해', '때문에', '경우', '이후', '이전', '부분', '내용', '이것', '저것', '그것',
+  '우리', '당신', '저희', '오늘', '현재', '매우', '정말', '너무', '많이', '조금',
+  '에서', '에게', '으로', '로서', '이라고', '라고', '있습니다', '합니다', '됩니다',
+  '입니다', '습니다', '한다면', '위한', '대해', '관련', '가장', '특히', '이러한',
+  '다양한', '해당', '기존', '전체', '일부', '다른', '세부', '전년', '이번',
+]);
+
+const PARTICLES = [
+  '에서부터', '으로부터', '에게서', '에서는', '으로는', '이라는', '라는',
+  '에서', '에게', '한테', '부터', '까지', '에는', '으로', '로서', '로써',
+  '이나', '거나', '이며', '하며', '에도', '만큼', '처럼', '같이', '보다',
+  '마다', '조차', '밖에', '와의', '과의', '의', '은', '는', '이', '가',
+  '을', '를', '에', '와', '과', '도', '만', '로',
+].sort((a, b) => b.length - a.length);
+
+function stripParticle(word) {
+  for (const p of PARTICLES) {
+    if (word.endsWith(p) && word.length - p.length >= 2) return word.slice(0, word.length - p.length);
+  }
+  return word;
+}
+
+function collectSectionText(analysis) {
+  const parts = [analysis.oneLineSummary];
+  analysis.sections.forEach((sec) => {
+    if (sec.type === 'text') parts.push(sec.content);
+    else if (sec.type === 'fields') sec.fields.forEach((f) => parts.push(f.value));
+    else if (sec.type === 'list' || sec.type === 'steps') sec.items.forEach((it) => parts.push(it.text));
+  });
+  return parts.join(' ');
+}
+
+function extractKeywords(analysis, limit) {
+  limit = limit || 8;
+  const tokens = collectSectionText(analysis)
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(stripParticle)
+    .filter((w) => w.length >= 2 && !/^\d+$/.test(w) && !STOPWORDS.has(w));
+
+  const freq = new Map();
+  tokens.forEach((t) => freq.set(t, (freq.get(t) || 0) + 1));
+
+  return [...freq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([w]) => w);
+}
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Appends `text` to `parent` as plain text, except keyword matches which get
+// wrapped in <mark> for a light, in-place highlight.
+function appendHighlighted(parent, text, keywords) {
+  if (!keywords || keywords.length === 0) {
+    parent.appendChild(document.createTextNode(text));
+    return;
+  }
+  const sorted = [...keywords].sort((a, b) => b.length - a.length).map(escapeRegExp);
+  const re = new RegExp(`(${sorted.join('|')})`, 'g');
+  const parts = text.split(re).filter((s) => s.length > 0);
+  const kwSet = new Set(keywords);
+  parts.forEach((part) => {
+    if (kwSet.has(part)) {
+      const mark = document.createElement('mark');
+      mark.textContent = part;
+      parent.appendChild(mark);
+    } else {
+      parent.appendChild(document.createTextNode(part));
+    }
+  });
 }
 
 // True if the last syllable of a Hangul word has a batchim (trailing
@@ -264,11 +351,11 @@ function ensureSentenceEnd(text) {
 }
 
 // Renders one analysis section (fields/list/steps/text) according to the
-// selected 출력 형식 (list/prose/table) and 원문 근거 toggle.
-function renderSectionContent(sec, format, showEvidence) {
+// selected 출력 형식 (list/prose/table), 원문 근거 toggle, and 핵심 키워드 highlighting.
+function renderSectionContent(sec, format, showEvidence, keywords) {
   if (sec.type === 'text') {
     const p = document.createElement('p');
-    p.textContent = withEvidence(sec.content, sec.evidence, showEvidence);
+    appendHighlighted(p, withEvidence(sec.content, sec.evidence, showEvidence), keywords);
     return p;
   }
 
@@ -278,13 +365,16 @@ function renderSectionContent(sec, format, showEvidence) {
       return buildTable(
         headers,
         sec.fields.map((f) => (showEvidence ? [f.label, f.value, f.evidence || ''] : [f.label, f.value])),
+        null,
+        keywords,
       );
     }
     if (format === 'prose') {
       const p = document.createElement('p');
-      p.textContent = sec.fields
+      const combined = sec.fields
         .map((f) => ensureSentenceEnd(`${f.label}${topicParticle(f.label)} ${withEvidence(f.value, f.evidence, showEvidence)}`))
         .join(' ');
+      appendHighlighted(p, combined, keywords);
       return p;
     }
     const ul = document.createElement('ul');
@@ -294,7 +384,7 @@ function renderSectionContent(sec, format, showEvidence) {
       const strong = document.createElement('strong');
       strong.textContent = `${f.label}: `;
       li.appendChild(strong);
-      li.appendChild(document.createTextNode(withEvidence(f.value, f.evidence, showEvidence)));
+      appendHighlighted(li, withEvidence(f.value, f.evidence, showEvidence), keywords);
       ul.appendChild(li);
     });
     return ul;
@@ -303,18 +393,18 @@ function renderSectionContent(sec, format, showEvidence) {
   // list or steps
   const texts = sec.items.map((it) => withEvidence(it.text, it.evidence, showEvidence));
   if (format === 'table') {
-    return buildTable(['번호', '내용'], texts.map((t, i) => [i + 1, t]));
+    return buildTable(['번호', '내용'], texts.map((t, i) => [i + 1, t]), null, keywords);
   }
   if (format === 'prose') {
     const p = document.createElement('p');
-    p.textContent = texts.map(ensureSentenceEnd).join(' ');
+    appendHighlighted(p, texts.map(ensureSentenceEnd).join(' '), keywords);
     return p;
   }
   const listEl = document.createElement(sec.type === 'steps' ? 'ol' : 'ul');
   listEl.className = 'plain-list';
   texts.forEach((t) => {
     const li = document.createElement('li');
-    li.textContent = t;
+    appendHighlighted(li, t, keywords);
     listEl.appendChild(li);
   });
   return listEl;
@@ -322,7 +412,7 @@ function renderSectionContent(sec, format, showEvidence) {
 
 function buildSection(section, options) {
   const a = section.analysis;
-  const { format, purpose, showVerification, showEvidence } = options;
+  const { format, purpose, showVerification, showEvidence, showKeywords } = options;
   const wrap = document.createElement('div');
   wrap.className = 'result-section';
 
@@ -338,11 +428,13 @@ function buildSection(section, options) {
   typeBadge.textContent = a.documentType;
   wrap.appendChild(typeBadge);
 
+  const keywords = showKeywords ? extractKeywords(a) : [];
+
   const oneLineBox = document.createElement('div');
   oneLineBox.className = 'overview-box';
   const oneLineText = document.createElement('p');
   oneLineText.className = 'overview-text';
-  oneLineText.textContent = a.oneLineSummary;
+  appendHighlighted(oneLineText, a.oneLineSummary, keywords);
   oneLineBox.appendChild(oneLineText);
   wrap.appendChild(oneLineBox);
 
@@ -373,25 +465,36 @@ function buildSection(section, options) {
       }
     });
     const condensedSection = { type: 'list', items: bullets.slice(0, 5) };
-    addBlock('핵심 내용', renderSectionContent(condensedSection, format, showEvidence));
-    return wrap;
-  }
+    addBlock('핵심 내용', renderSectionContent(condensedSection, format, showEvidence, keywords));
+  } else {
+    let sections = a.sections.filter((sec) => sec.key !== 'needsVerification' || showVerification);
 
-  let sections = a.sections.filter((sec) => sec.key !== 'needsVerification' || showVerification);
-
-  // 검토용 요약: pin 확인 필요사항 to the top and highlight it, since this
-  // purpose is about checking for risk/gaps before the rest of the content.
-  if (purpose === 'review') {
-    const verifSec = sections.find((sec) => sec.key === 'needsVerification');
-    if (verifSec) {
-      addBlock(verifSec.title, renderSectionContent(verifSec, format, showEvidence), true);
-      sections = sections.filter((sec) => sec.key !== 'needsVerification');
+    // 검토용 요약: pin 확인 필요사항 to the top and highlight it, since this
+    // purpose is about checking for risk/gaps before the rest of the content.
+    if (purpose === 'review') {
+      const verifSec = sections.find((sec) => sec.key === 'needsVerification');
+      if (verifSec) {
+        addBlock(verifSec.title, renderSectionContent(verifSec, format, showEvidence, keywords), true);
+        sections = sections.filter((sec) => sec.key !== 'needsVerification');
+      }
     }
+
+    sections.forEach((sec) => {
+      addBlock(sec.title, renderSectionContent(sec, format, showEvidence, keywords));
+    });
   }
 
-  sections.forEach((sec) => {
-    addBlock(sec.title, renderSectionContent(sec, format, showEvidence));
-  });
+  if (keywords.length > 0) {
+    const tagRow = document.createElement('div');
+    tagRow.className = 'tag-row';
+    keywords.forEach((kw) => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      chip.textContent = kw;
+      tagRow.appendChild(chip);
+    });
+    addBlock('핵심 키워드', tagRow);
+  }
 
   return wrap;
 }
@@ -418,6 +521,7 @@ generateBtn.addEventListener('click', async () => {
   const options = {
     purpose: document.querySelector('input[name="purpose"]:checked').value,
     format: document.querySelector('input[name="format"]:checked').value,
+    showKeywords: document.querySelector('input[name="extras"][value="keywords"]').checked,
     showVerification: document.querySelector('input[name="extras"][value="verification"]').checked,
     showEvidence: document.querySelector('input[name="extras"][value="evidence"]').checked,
   };
