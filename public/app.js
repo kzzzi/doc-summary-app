@@ -215,7 +215,7 @@ toStep2.addEventListener('click', async () => {
 // --- Step 2 -> 3: Analyze ---
 const resultContainer = document.getElementById('resultContainer');
 
-function buildTable(headers, rows, emptyMessage) {
+function buildTable(headers, rows, emptyMessage, mutedLastCol) {
   if (rows.length === 0) {
     const p = document.createElement('p');
     p.className = 'table-empty';
@@ -239,9 +239,10 @@ function buildTable(headers, rows, emptyMessage) {
   const tbody = document.createElement('tbody');
   rows.forEach((row) => {
     const tr = document.createElement('tr');
-    row.forEach((cell) => {
+    row.forEach((cell, colIdx) => {
       const td = document.createElement('td');
       td.textContent = String(cell);
+      if (mutedLastCol && colIdx === row.length - 1) td.classList.add('evidence-cell');
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
@@ -251,8 +252,15 @@ function buildTable(headers, rows, emptyMessage) {
   return table;
 }
 
-function withEvidence(text, evidence, showEvidence) {
-  return showEvidence && evidence ? `${text} (근거: ${evidence})` : text;
+// Appends the 원문 근거 (source page/paragraph) as a small, muted footnote
+// right after the summary text it supports, rather than folding it into the
+// same-size sentence — visually like a note attached to the summary.
+function appendEvidenceNote(parent, evidence) {
+  if (!evidence) return;
+  const note = document.createElement('span');
+  note.className = 'evidence-note';
+  note.textContent = ` (근거: ${evidence})`;
+  parent.appendChild(note);
 }
 
 // True if the last syllable of a Hangul word has a batchim (trailing
@@ -271,11 +279,14 @@ function ensureSentenceEnd(text) {
 }
 
 // Renders one analysis section (fields/list/steps/text) according to the
-// selected 출력 형식 (list/prose/table) and 원문 근거 toggle.
+// selected 출력 형식 (list/prose/table) and 원문 근거 toggle. When 원문 근거 is
+// on, it's appended as a small muted note (see appendEvidenceNote) rather
+// than folded into the summary sentence itself.
 function renderSectionContent(sec, format, showEvidence) {
   if (sec.type === 'text') {
     const p = document.createElement('p');
-    p.textContent = withEvidence(sec.content, sec.evidence, showEvidence);
+    p.appendChild(document.createTextNode(sec.content));
+    if (showEvidence) appendEvidenceNote(p, sec.evidence);
     return p;
   }
 
@@ -286,13 +297,16 @@ function renderSectionContent(sec, format, showEvidence) {
         headers,
         sec.fields.map((f) => (showEvidence ? [f.label, f.value, f.evidence || ''] : [f.label, f.value])),
         null,
+        showEvidence,
       );
     }
     if (format === 'prose') {
       const p = document.createElement('p');
-      p.textContent = sec.fields
-        .map((f) => ensureSentenceEnd(`${f.label}${topicParticle(f.label)} ${withEvidence(f.value, f.evidence, showEvidence)}`))
-        .join(' ');
+      sec.fields.forEach((f, i) => {
+        if (i > 0) p.appendChild(document.createTextNode(' '));
+        p.appendChild(document.createTextNode(ensureSentenceEnd(`${f.label}${topicParticle(f.label)} ${f.value}`)));
+        if (showEvidence) appendEvidenceNote(p, f.evidence);
+      });
       return p;
     }
     const ul = document.createElement('ul');
@@ -302,27 +316,38 @@ function renderSectionContent(sec, format, showEvidence) {
       const strong = document.createElement('strong');
       strong.textContent = `${f.label}: `;
       li.appendChild(strong);
-      li.appendChild(document.createTextNode(withEvidence(f.value, f.evidence, showEvidence)));
+      li.appendChild(document.createTextNode(f.value));
+      if (showEvidence) appendEvidenceNote(li, f.evidence);
       ul.appendChild(li);
     });
     return ul;
   }
 
   // list or steps
-  const texts = sec.items.map((it) => withEvidence(it.text, it.evidence, showEvidence));
   if (format === 'table') {
-    return buildTable(['번호', '내용'], texts.map((t, i) => [i + 1, t]), null);
+    const headers = showEvidence ? ['번호', '내용', '원문 근거'] : ['번호', '내용'];
+    return buildTable(
+      headers,
+      sec.items.map((it, i) => (showEvidence ? [i + 1, it.text, it.evidence || ''] : [i + 1, it.text])),
+      null,
+      showEvidence,
+    );
   }
   if (format === 'prose') {
     const p = document.createElement('p');
-    p.textContent = texts.map(ensureSentenceEnd).join(' ');
+    sec.items.forEach((it, i) => {
+      if (i > 0) p.appendChild(document.createTextNode(' '));
+      p.appendChild(document.createTextNode(ensureSentenceEnd(it.text)));
+      if (showEvidence) appendEvidenceNote(p, it.evidence);
+    });
     return p;
   }
   const listEl = document.createElement(sec.type === 'steps' ? 'ol' : 'ul');
   listEl.className = 'plain-list';
-  texts.forEach((t) => {
+  sec.items.forEach((it) => {
     const li = document.createElement('li');
-    li.textContent = t;
+    li.appendChild(document.createTextNode(it.text));
+    if (showEvidence) appendEvidenceNote(li, it.evidence);
     listEl.appendChild(li);
   });
   return listEl;
